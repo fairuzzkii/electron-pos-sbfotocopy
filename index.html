@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SB Fotocopy - Sistem POS</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="light-theme">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-store"></i> SB Fotocopy</h2>
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    <i class="fas fa-sun"></i>
+                </button>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" onclick="showPage('dashboard')">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" onclick="showPage('products')">
+                    <i class="fas fa-boxes"></i>
+                    <span>Kelola Barang</span>
+                </a>
+                <a href="#" class="nav-item" onclick="showPage('history')">
+                    <i class="fas fa-history"></i>
+                    <span>Riwayat Penjualan</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Page -->
+            <div id="dashboard-page" class="page active">
+                <div class="page-header">
+                    <h1>Dashboard Kasir</h1>
+                    <p>Kelola transaksi penjualan</p>
+                </div>
+
+                <div class="cashier-grid">
+                    <!-- Makanan & Minuman -->
+                    <div class="cashier-section">
+                        <div class="section-header">
+                            <h3><i class="fas fa-coffee"></i> Makanan & Minuman</h3>
+                        </div>
+                        <div class="product-search">
+                            <input type="text" id="makmin-search" placeholder="Cari barang..." 
+                                   onkeyup="searchProducts('makmin')">
+                        </div>
+                        <div class="product-list" id="makmin-products"></div>
+                        <div class="cart" id="makmin-cart">
+                            <div class="cart-items"></div>
+                            <div class="cart-total">Total: Rp <span>0</span></div>
+                        </div>
+                    </div>
+
+                    <!-- ATK -->
+                    <div class="cashier-section">
+                        <div class="section-header">
+                            <h3><i class="fas fa-pencil-alt"></i> ATK</h3>
+                        </div>
+                        <div class="product-search">
+                            <input type="text" id="atk-search" placeholder="Cari barang..." 
+                                   onkeyup="searchProducts('atk')">
+                        </div>
+                        <div class="product-list" id="atk-products"></div>
+                        <div class="cart" id="atk-cart">
+                            <div class="cart-items"></div>
+                            <div class="cart-total">Total: Rp <span>0</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Fotocopy & Print -->
+                    <div class="cashier-section">
+                        <div class="section-header">
+                            <h3><i class="fas fa-print"></i> Fotocopy & Print</h3>
+                        </div>
+                        <div class="fotocopy-form">
+                            <div class="form-group">
+                                <label>Jenis Layanan:</label>
+                                <select id="fotocopy-type" required>
+                                    <option value="">Pilih Jenis</option>
+                                    <option value="fotocopy">Fotocopy</option>
+                                    <option value="print-bw">Print Hitam Putih</option>
+                                    <option value="print-color">Print Warna</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Harga per unit:</label>
+                                <input type="number" id="fotocopy-price" placeholder="0" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Kuantitas:</label>
+                                <input type="number" id="fotocopy-qty" placeholder="0" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label>Keterangan (opsional):</label>
+                                <input type="text" id="fotocopy-note" placeholder="Keterangan...">
+                            </div>
+                            <button onclick="addFotocopyItem()" class="btn-primary">Tambah</button>
+                        </div>
+                        <div class="cart" id="fotocopy-cart">
+                            <div class="cart-items"></div>
+                            <div class="cart-total">Total: Rp <span>0</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Section -->
+                <div class="payment-section">
+                    <div class="grand-total">
+                        <h3>Total Keseluruhan: Rp <span id="grand-total">0</span></h3>
+                    </div>
+                    <button onclick="processPayment()" class="btn-success btn-large">
+                        <i class="fas fa-credit-card"></i> Bayar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Products Page -->
+            <div id="products-page" class="page">
+                <div class="page-header">
+                    <h1>Kelola Barang</h1>
+                    <p>Manajemen stok dan data barang</p>
+                </div>
+
+                <div class="product-tabs">
+                    <button class="tab-btn active" onclick="showProductTab('atk')">
+                        <i class="fas fa-pencil-alt"></i> ATK
+                    </button>
+                    <button class="tab-btn" onclick="showProductTab('makmin')">
+                        <i class="fas fa-coffee"></i> Makanan & Minuman
+                    </button>
+                </div>
+
+                <div class="product-management">
+                    <div class="management-header">
+                        <button onclick="showAddProductModal()" class="btn-primary">
+                            <i class="fas fa-plus"></i> Tambah Barang
+                        </button>
+                    </div>
+
+                    <div class="product-table-container">
+                        <table id="products-table" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Kode</th>
+                                    <th>Nama Barang</th>
+                                    <th>Harga Beli</th>
+                                    <th>Harga Jual</th>
+                                    <th>Stok</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Page -->
+            <div id="history-page" class="page">
+                <div class="page-header">
+                    <h1>Riwayat Penjualan</h1>
+                    <p>Laporan dan analisis penjualan</p>
+                </div>
+
+                <div class="history-tabs">
+                    <button class="tab-btn active" onclick="showHistoryTab('summary')">
+                        <i class="fas fa-chart-bar"></i> Ringkasan
+                    </button>
+                    <button class="tab-btn" onclick="showHistoryTab('atk')">
+                        <i class="fas fa-pencil-alt"></i> ATK
+                    </button>
+                    <button class="tab-btn" onclick="showHistoryTab('makmin')">
+                        <i class="fas fa-coffee"></i> Makanan & Minuman
+                    </button>
+                    <button class="tab-btn" onclick="showHistoryTab('fotocopy')">
+                        <i class="fas fa-print"></i> Fotocopy & Print
+                    </button>
+                </div>
+
+                <div class="filter-section">
+                    <div class="filter-group">
+                        <label>Periode:</label>
+                        <select id="period-filter" onchange="updateHistoryData()">
+                            <option value="today">Hari Ini</option>
+                            <option value="week">Minggu Ini</option>
+                            <option value="month">Bulan Ini</option>
+                            <option value="custom">Kustom</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" id="custom-date-range" style="display: none;">
+                        <input type="date" id="date-from">
+                        <input type="date" id="date-to">
+                        <button onclick="updateHistoryData()" class="btn-secondary">Terapkan</button>
+                    </div>
+                </div>
+
+                <div class="summary-cards" id="summary-cards">
+                    <div class="summary-card">
+                        <h4>Total Omset</h4>
+                        <div class="amount">Rp 0</div>
+                    </div>
+                    <div class="summary-card">
+                        <h4>Total Modal</h4>
+                        <div class="amount">Rp 0</div>
+                    </div>
+                    <div class="summary-card">
+                        <h4>Total Laba</h4>
+                        <div class="amount">Rp 0</div>
+                    </div>
+                    <div class="summary-card">
+                        <h4>Transaksi</h4>
+                        <div class="amount">0</div>
+                    </div>
+                </div>
+
+                <div class="history-table-container">
+                    <table id="history-table" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Jenis</th>
+                                <th>Total</th>
+                                <th>Items</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Pembayaran</h3>
+                <span class="close" onclick="closeModal('payment-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="payment-summary">
+                    <h4>Total yang harus dibayar:</h4>
+                    <div class="total-amount">Rp <span id="payment-total">0</span></div>
+                </div>
+                <div class="form-group">
+                    <label>Uang yang diterima:</label>
+                    <input type="number" id="payment-received" placeholder="0" min="0" onkeyup="calculateChange()">
+                </div>
+                <div class="change-amount">
+                    <h4>Kembalian: Rp <span id="payment-change">0</span></h4>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeModal('payment-modal')" class="btn-secondary">Batal</button>
+                <button onclick="completeSale()" class="btn-success">Selesai</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Modal -->
+    <div id="product-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="product-modal-title">Tambah Barang</h3>
+                <span class="close" onclick="closeModal('product-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="product-form">
+                    <input type="hidden" id="product-id">
+                    <div class="form-group">
+                        <label>Jenis Barang:</label>
+                        <select id="product-type" required>
+                            <option value="atk">ATK</option>
+                            <option value="makmin">Makanan & Minuman</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Kode Barang:</label>
+                        <input type="text" id="product-code" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nama Barang:</label>
+                        <input type="text" id="product-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Harga Beli:</label>
+                        <input type="number" id="product-purchase-price" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Harga Jual:</label>
+                        <input type="number" id="product-selling-price" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Stok:</label>
+                        <input type="number" id="product-stock" min="0" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeModal('product-modal')" class="btn-secondary">Batal</button>
+                <button onclick="saveProduct()" class="btn-success">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>

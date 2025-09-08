@@ -1,0 +1,36 @@
+{
+  "name": "sb-fotocopy-pos",
+  "version": "1.0.0",
+  "description": "Aplikasi POS untuk SB Fotocopy",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder"
+  },
+  "keywords": ["pos", "fotocopy", "electron"],
+  "author": "SB Fotocopy",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4"
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.6"
+  },
+  "build": {
+    "appId": "com.sbfotocopy.pos",
+    "productName": "SB Fotocopy POS",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "renderer.js",
+      "database.js",
+      "index.html",
+      "styles.css",
+      "node_modules/**/*"
+    ]
+  }
+}
