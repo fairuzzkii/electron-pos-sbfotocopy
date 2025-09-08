@@ -1,9 +1,10 @@
-**﻿SB Fotocopy - Sistem POS**
-Aplikasi Point of Sale (POS) desktop untuk SB Fotocopy yang dibangun dengan Electron.js dan SQLite.
-Fitur Utama
-🏪 Dashboard Kasir
+# ﻿SB Fotocopy - Sistem POS
 
-3 Kolom Kasir Terpisah:
+Aplikasi Point of Sale (POS) desktop untuk SB Fotocopy yang dibangun dengan Electron.js dan SQLite.
+
+Fitur Utama
+
+🏪 Dashboard Kasir 3 Kolom Kasir Terpisah:
 
 Makanan & Minuman
 ATK (Alat Tulis Kantor)
@@ -51,3 +52,4 @@ Keyboard Shortcuts: Navigasi cepat
 Notifikasi: Feedback interaktif
 
 Auto-save: Data tersimpan otomatis
+
