@@ -30,6 +30,10 @@
                     <i class="fas fa-history"></i>
                     <span>Riwayat Penjualan</span>
                 </a>
+                <a href="#" class="nav-item" onclick="showPage('fotocopy-expenses')">
+                    <i class="fas fa-calculator"></i>
+                    <span>Pengeluaran Fotocopy</span>
+                </a>
             </nav>
         </aside>
 
@@ -38,86 +42,68 @@
             <!-- Dashboard Page -->
             <div id="dashboard-page" class="page active">
                 <div class="page-header">
-                    <h1>Dashboard Kasir</h1>
-                    <p>Kelola transaksi penjualan</p>
+                    <h1>Dashboard</h1>
+                    <p>Pusat kontrol penjualan dan stok</p>
                 </div>
 
-                <div class="cashier-grid">
-                    <!-- Makanan & Minuman -->
-                    <div class="cashier-section">
-                        <div class="section-header">
-                            <h3><i class="fas fa-coffee"></i> Makanan & Minuman</h3>
-                        </div>
-                        <div class="product-search">
-                            <input type="text" id="makmin-search" placeholder="Cari barang..." 
-                                   onkeyup="searchProducts('makmin')">
-                        </div>
-                        <div class="product-list" id="makmin-products"></div>
-                        <div class="cart" id="makmin-cart">
-                            <div class="cart-items"></div>
-                            <div class="cart-total">Total: Rp <span>0</span></div>
-                        </div>
-                    </div>
-
-                    <!-- ATK -->
-                    <div class="cashier-section">
-                        <div class="section-header">
-                            <h3><i class="fas fa-pencil-alt"></i> ATK</h3>
-                        </div>
-                        <div class="product-search">
-                            <input type="text" id="atk-search" placeholder="Cari barang..." 
-                                   onkeyup="searchProducts('atk')">
-                        </div>
+                <div class="cart-section">
+                    <div class="cart atk-cart" id="atk-cart">
+                        <h3><i class="fas fa-pencil-alt"></i> ATK</h3>
+                        <input type="text" id="atk-search" placeholder="Cari ATK..." onkeyup="searchProducts('atk')">
                         <div class="product-list" id="atk-products"></div>
-                        <div class="cart" id="atk-cart">
-                            <div class="cart-items"></div>
-                            <div class="cart-total">Total: Rp <span>0</span></div>
+                        <div class="cart-items"></div>
+                        <div class="cart-total">
+                            Total: <span>Rp 0</span>
                         </div>
                     </div>
 
-                    <!-- Fotocopy & Print -->
-                    <div class="cashier-section">
-                        <div class="section-header">
-                            <h3><i class="fas fa-print"></i> Fotocopy & Print</h3>
+                    <div class="cart makmin-cart" id="makmin-cart">
+                        <h3><i class="fas fa-coffee"></i> Makanan & Minuman</h3>
+                        <input type="text" id="makmin-search" placeholder="Cari Makanan & Minuman..." onkeyup="searchProducts('makmin')">
+                        <div class="product-list" id="makmin-products"></div>
+                        <div class="cart-items"></div>
+                        <div class="cart-total">
+                            Total: <span>Rp 0</span>
                         </div>
+                    </div>
+
+                    <div class="cart fotocopy-cart" id="fotocopy-cart">
+                        <h3><i class="fas fa-print"></i> Fotocopy & Print</h3>
                         <div class="fotocopy-form">
                             <div class="form-group">
                                 <label>Jenis Layanan:</label>
-                                <select id="fotocopy-type" required>
-                                    <option value="">Pilih Jenis</option>
+                                <select id="fotocopy-type">
+                                    <option value="">Pilih Layanan</option>
                                     <option value="fotocopy">Fotocopy</option>
                                     <option value="print-color">Print Warna</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>Harga per unit:</label>
-                                <input type="number" id="fotocopy-price" placeholder="0" min="0">
+                                <label>Harga Satuan:</label>
+                                <input type="number" id="fotocopy-price" min="0">
                             </div>
                             <div class="form-group">
-                                <label>Kuantitas:</label>
-                                <input type="number" id="fotocopy-qty" placeholder="0" min="1">
+                                <label>Jumlah:</label>
+                                <input type="number" id="fotocopy-qty" min="0">
                             </div>
                             <div class="form-group">
-                                <label>Keterangan (opsional):</label>
-                                <input type="text" id="fotocopy-note" placeholder="Keterangan...">
+                                <label>Catatan (opsional):</label>
+                                <input type="text" id="fotocopy-note">
                             </div>
                             <button onclick="addFotocopyItem()" class="btn-primary">Tambah</button>
                         </div>
-                        <div class="cart" id="fotocopy-cart">
-                            <div class="cart-items"></div>
-                            <div class="cart-total">Total: Rp <span>0</span></div>
+                        <div class="cart-items"></div>
+                        <div class="cart-total">
+                            Total: <span>Rp 0</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Payment Section -->
-                <div class="payment-section">
+                <div class="cart-footer">
                     <div class="grand-total">
-                        <h3>Total Keseluruhan: Rp <span id="grand-total">0</span></h3>
+                        Grand Total: <span id="grand-total">Rp 0</span>
                     </div>
-                    <button onclick="processPayment()" class="btn-success btn-large">
-                        <i class="fas fa-credit-card"></i> Bayar
-                    </button>
+                    <button onclick="processPayment()" class="btn-success">Proses Pembayaran</button>
                 </div>
             </div>
 
@@ -155,6 +141,7 @@
                                     <th>Kode</th>
                                     <th>Nama Barang</th>
                                     <th>Harga Beli</th>
+                                    <th>Total Modal</th>
                                     <th>Harga Jual</th>
                                     <th>Stok Saat Ini</th>
                                     <th>Aksi</th>
@@ -231,17 +218,100 @@
                         <h4>Transaksi</h4>
                         <div class="amount">0</div>
                     </div>
+                    <div class="summary-card" id="fotocopy-extra" style="display: none;">
+                        <h4>Total Pendapatan Fotocopy</h4>
+                        <div class="amount">Rp 0</div>
+                    </div>
+                    <div class="summary-card" id="print-extra" style="display: none;">
+                        <h4>Total Pendapatan Print Warna</h4>
+                        <div class="amount">Rp 0</div>
+                    </div>
+                    <div class="summary-card" id="expenses-extra" style="display: none;">
+                        <h4>Total Pengeluaran</h4>
+                        <div class="amount">Rp 0</div>
+                    </div>
                 </div>
 
                 <div class="history-table-container">
                     <table id="history-table" class="data-table">
                         <thead>
                             <tr>
-                                <th>Tanggal</th>
+                                <th>Tanggal & Jam</th>
                                 <th>Jenis</th>
+                                <th>Nama Barang/Layanan</th>
                                 <th>Metode Bayar</th>
+                                <th>Harga Satuan</th>
+                                <th>Qty</th>
                                 <th>Total</th>
-                                <th>Items</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pengeluaran Fotocopy Page -->
+            <div id="fotocopy-expenses-page" class="page">
+                <div class="page-header">
+                    <h1>Pengeluaran Fotocopy</h1>
+                    <p>Manajemen pengeluaran dan pendapatan fotocopy</p>
+                </div>
+
+                <div class="filter-section">
+                    <div class="filter-group">
+                        <label>Periode:</label>
+                        <select id="expenses-period-filter" onchange="updateExpensesData()">
+                            <option value="today">Hari Ini</option>
+                            <option value="week">Minggu Ini</option>
+                            <option value="month">Bulan Ini</option>
+                            <option value="custom">Kustom</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" id="expenses-custom-date-range" style="display: none;">
+                        <input type="date" id="expenses-date-from">
+                        <input type="date" id="expenses-date-to">
+                        <button onclick="updateExpensesData()" class="btn-secondary">Terapkan</button>
+                    </div>
+                    <div class="filter-group">
+                        <input type="text" id="expenses-search" placeholder="Cari berdasarkan deskripsi atau tanggal..." onkeyup="searchExpenses()">
+                    </div>
+                    <button onclick="showAddExpenseModal()" class="btn-primary">
+                        <i class="fas fa-plus"></i> Tambah Pengeluaran
+                    </button>
+                </div>
+
+                <div class="summary-cards" id="expenses-summary-cards">
+                    <div class="summary-card">
+                        <h4>Total Omset</h4>
+                        <div class="amount">Rp 0</div>
+                    </div>
+                    <div class="summary-card">
+                        <h4>Total Pendapatan Fotocopy</h4>
+                        <div class="amount">Rp 0</div>
+                    </div>
+                    <div class="summary-card">
+                        <h4>Total Pendapatan Print Warna</h4>
+                        <div class="amount">Rp 0</div>
+                    </div>
+                    <div class="summary-card">
+                        <h4>Total Pengeluaran</h4>
+                        <div class="amount">Rp 0</div>
+                    </div>
+                    <div class="summary-card">
+                        <h4>Total Laba</h4>
+                        <div class="amount">Rp 0</div>
+                    </div>
+                </div>
+
+                <div class="history-table-container">
+                    <table id="expenses-table" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Deskripsi Pengeluaran</th>
+                                <th>Biaya Pengeluaran</th>
+                                <th>Aksi</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -256,32 +326,33 @@
     <div id="payment-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Pembayaran</h3>
+                <h3>Proses Pembayaran</h3>
                 <span class="close" onclick="closeModal('payment-modal')">&times;</span>
             </div>
             <div class="modal-body">
-                <div class="payment-summary">
-                    <h4>Total yang harus dibayar:</h4>
-                    <div class="total-amount">Rp <span id="payment-total">0</span></div>
+                <div class="form-group">
+                    <label>Total Pembayaran:</label>
+                    <div id="payment-total">Rp 0</div>
                 </div>
                 <div class="form-group">
                     <label>Metode Pembayaran:</label>
-                    <select id="payment-method" required>
+                    <select id="payment-method" onchange="toggleCashInput()">
                         <option value="cash">Cash</option>
                         <option value="qris">QRIS</option>
                     </select>
                 </div>
-                <div class="form-group" id="cash-input-group" style="display: block;">
-                    <label>Uang yang diterima (untuk Cash):</label>
-                    <input type="number" id="payment-received" placeholder="0" min="0" onkeyup="calculateChange()">
+                <div class="form-group" id="cash-input-group">
+                    <label>Uang Diterima:</label>
+                    <input type="number" id="payment-received" min="0" oninput="calculateChange()">
                 </div>
-                <div class="change-amount">
-                    <h4>Kembalian: Rp <span id="payment-change">0</span></h4>
+                <div class="form-group">
+                    <label>Kembalian:</label>
+                    <div id="payment-change">0</div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button onclick="closeModal('payment-modal')" class="btn-secondary">Batal</button>
-                <button onclick="completeSale()" class="btn-success">Selesai</button>
+                <button onclick="completeSale()" class="btn-success">Selesaikan</button>
             </div>
         </div>
     </div>
@@ -297,7 +368,7 @@
                 <form id="product-form">
                     <input type="hidden" id="product-id">
                     <div class="form-group">
-                        <label>Jenis Barang:</label>
+                        <label>Jenis:</label>
                         <select id="product-type" required>
                             <option value="atk">ATK</option>
                             <option value="makmin">Makanan & Minuman</option>
@@ -320,7 +391,7 @@
                         <input type="number" id="product-selling-price" min="0" required>
                     </div>
                     <div class="form-group">
-                        <label>Stok:</label>
+                        <label>Stok Awal:</label>
                         <input type="number" id="product-stock" min="0" required>
                     </div>
                 </form>
@@ -342,7 +413,7 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label>Cari Produk:</label>
-                    <input type="text" id="stock-search" placeholder="Cari berdasarkan kode atau nama..." onkeyup="filterStockSelect()">
+                    <input type="text" id="stock-search" placeholder="Cari kode atau nama..." onkeyup="filterStockSelect()">
                 </div>
                 <div class="form-group">
                     <label>Pilih Produk:</label>
@@ -351,13 +422,66 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Jumlah Tambah:</label>
+                    <label>Jumlah Stok Ditambahkan:</label>
                     <input type="number" id="stock-add-amount" min="1" required>
                 </div>
             </div>
             <div class="modal-footer">
                 <button onclick="closeModal('add-stock-modal')" class="btn-secondary">Batal</button>
-                <button onclick="addStock()" class="btn-success">Tambah Stok</button>
+                <button onclick="addStock()" class="btn-success">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Expense Modal -->
+    <div id="add-expense-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Tambah Pengeluaran</h3>
+                <span class="close" onclick="closeModal('add-expense-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Tanggal:</label>
+                    <input type="date" id="expense-date" value="" required>
+                </div>
+                <div class="form-group">
+                    <label>Deskripsi:</label>
+                    <input type="text" id="expense-description" placeholder="Deskripsi pengeluaran..." required>
+                </div>
+                <div class="form-group">
+                    <label>Biaya:</label>
+                    <input type="number" id="expense-amount" min="0" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeModal('add-expense-modal')" class="btn-secondary">Batal</button>
+                <button onclick="saveExpense()" class="btn-success">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Expense Modal -->
+    <div id="edit-expense-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Pengeluaran</h3>
+                <span class="close" onclick="closeModal('edit-expense-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-expense-id">
+                <div class="form-group">
+                    <label>Deskripsi:</label>
+                    <input type="text" id="edit-expense-description" placeholder="Deskripsi pengeluaran..." required>
+                </div>
+                <div class="form-group">
+                    <label>Biaya:</label>
+                    <input type="number" id="edit-expense-amount" min="0" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeModal('edit-expense-modal')" class="btn-secondary">Batal</button>
+                <button onclick="updateExpense()" class="btn-success">Simpan</button>
             </div>
         </div>
     </div>

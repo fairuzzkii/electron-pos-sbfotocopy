@@ -1,39 +1,41 @@
 const { ipcRenderer } = require('electron');
 
-// Global variables
 let currentPage = 'dashboard';
 let currentProductTab = 'atk';
 let currentHistoryTab = 'summary';
-let currentPaymentMethod = 'cash';  // Default
+let currentPaymentMethod = 'cash';
 let products = { atk: [], makmin: [] };
-let allProducts = [];  // Untuk dropdown add stock
+let allProducts = [];
 let cart = { makmin: [], atk: [], fotocopy: [] };
 let isEditMode = false;
 let editingProductId = null;
-let filteredSales = [];  // Untuk search history
+let editingExpenseId = null;
+let filteredSales = [];
+let filteredExpenses = [];
 
-// Initialize app
 document.addEventListener('DOMContentLoaded', async () => {
     await loadProducts();
     updateCartDisplays();
     updateGrandTotal();
     loadHistoryData();
     
-    // Set initial theme
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.body.className = savedTheme + '-theme';
     updateThemeIcon();
     
-    // Set initial dates
     document.getElementById('date-from').valueAsDate = new Date();
     document.getElementById('date-to').valueAsDate = new Date();
+    document.getElementById('expenses-date-from').valueAsDate = new Date();
+    document.getElementById('expenses-date-to').valueAsDate = new Date();
 
-    // Load all products for add stock dropdown
     allProducts = [...products.atk, ...products.makmin];
     populateStockSelect();
+
+    if (currentPage === 'fotocopy-expenses') {
+        loadExpensesData();
+    }
 });
 
-// Theme management
 function toggleTheme() {
     const currentTheme = document.body.className.includes('dark') ? 'dark' : 'light';
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -49,27 +51,24 @@ function updateThemeIcon() {
     themeToggle.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
 }
 
-// Page navigation
 function showPage(page) {
-    // Hide all pages
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     
-    // Show selected page
     document.getElementById(page + '-page').classList.add('active');
     document.querySelector(`[onclick="showPage('${page}')"]`).classList.add('active');
     
     currentPage = page;
     
-    // Load page-specific data
     if (page === 'products') {
         loadProductsTable();
     } else if (page === 'history') {
         loadHistoryData();
+    } else if (page === 'fotocopy-expenses') {
+        loadExpensesData();
     }
 }
 
-// Tab management
 function showProductTab(tab) {
     document.querySelectorAll('.product-tabs .tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`[onclick="showProductTab('${tab}')"]`).classList.add('active');
@@ -86,7 +85,6 @@ function showHistoryTab(tab) {
     loadHistoryData();
 }
 
-// Product management
 async function loadProducts() {
     try {
         products.atk = await ipcRenderer.invoke('db-get-products', 'atk');
@@ -94,7 +92,7 @@ async function loadProducts() {
         allProducts = [...products.atk, ...products.makmin];
         
         updateProductLists();
-        populateStockSelect();  // Update dropdown
+        populateStockSelect();
     } catch (error) {
         console.error('Error loading products:', error);
         showNotification('Error loading products', 'error');
@@ -179,7 +177,6 @@ function searchProducts(type) {
     });
 }
 
-// Search for products table
 function searchProductsTable() {
     const searchTerm = document.getElementById('product-search').value.toLowerCase();
     const currentProducts = products[currentProductTab] || [];
@@ -190,17 +187,18 @@ function searchProductsTable() {
     renderProductsTable(filtered);
 }
 
-// Render products table helper
 function renderProductsTable(productsToRender) {
     const tbody = document.querySelector('#products-table tbody');
     tbody.innerHTML = '';
     
     productsToRender.forEach(product => {
+        const totalModal = product.purchase_price * product.stock;
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${product.code}</td>
             <td>${product.name}</td>
             <td>Rp ${formatNumber(product.purchase_price)}</td>
+            <td>Rp ${formatNumber(totalModal)}</td>
             <td>Rp ${formatNumber(product.selling_price)}</td>
             <td>${product.stock}</td>
             <td>
@@ -228,7 +226,6 @@ function loadProductsTable() {
     renderProductsTable(filtered);
 }
 
-// Cart management
 function addToCart(type, product) {
     if (product.stock <= 0) {
         showNotification('Stok tidak tersedia', 'warning');
@@ -382,7 +379,6 @@ function addFotocopyItem() {
     updateCartDisplay('fotocopy');
     updateGrandTotal();
     
-    // Clear form
     document.getElementById('fotocopy-type').value = '';
     document.getElementById('fotocopy-price').value = '';
     document.getElementById('fotocopy-qty').value = '';
@@ -413,7 +409,6 @@ function updateGrandTotal() {
     document.getElementById('grand-total').textContent = formatNumber(grandTotal);
 }
 
-// Payment processing
 function processPayment() {
     const grandTotal = calculateGrandTotal();
     
@@ -426,7 +421,7 @@ function processPayment() {
     document.getElementById('payment-method').value = 'cash';
     document.getElementById('payment-received').value = '';
     document.getElementById('payment-change').textContent = '0';
-    toggleCashInput();  // Show/hide cash input based on method
+    toggleCashInput();
     
     showModal('payment-modal');
 }
@@ -439,7 +434,7 @@ function toggleCashInput() {
         cashGroup.style.display = 'block';
     } else {
         cashGroup.style.display = 'none';
-        document.getElementById('payment-received').value = total;  // For QRIS, assume paid full
+        document.getElementById('payment-received').value = total;
         document.getElementById('payment-change').textContent = '0';
     }
 }
@@ -476,7 +471,6 @@ async function completeSale() {
     }
     
     try {
-        // Process each cart type with payment_method
         const salePromises = [];
         
         if (cart.atk.length > 0) {
@@ -493,21 +487,18 @@ async function completeSale() {
         
         await Promise.all(salePromises);
         
-        // Update stock for ATK and Makmin (kurangi)
         for (const item of cart.atk) {
-            await ipcRenderer.invoke('db-update-stock', item.id, -item.quantity);  // Negative untuk kurangi
+            await ipcRenderer.invoke('db-update-stock', item.id, -item.quantity);
         }
         
         for (const item of cart.makmin) {
             await ipcRenderer.invoke('db-update-stock', item.id, -item.quantity);
         }
         
-        // Clear carts
         cart.atk = [];
         cart.makmin = [];
         cart.fotocopy = [];
         
-        // Update displays
         updateCartDisplays();
         updateGrandTotal();
         await loadProducts();
@@ -561,7 +552,6 @@ async function processSaleByType(type, paymentMethod) {
     return await ipcRenderer.invoke('db-add-sale', sale);
 }
 
-// Add Stock Modal
 function showAddStockModal() {
     document.getElementById('stock-search').value = '';
     document.getElementById('stock-product-select').value = '';
@@ -580,10 +570,10 @@ async function addStock() {
     }
     
     try {
-        await ipcRenderer.invoke('db-update-stock', productId, amount);  // + amount
+        await ipcRenderer.invoke('db-update-stock', productId, amount);
         showNotification('Stok berhasil ditambahkan', 'success');
         closeModal('add-stock-modal');
-        await loadProducts();  // Reload untuk update dropdown dan list
+        await loadProducts();
         if (currentPage === 'products') {
             loadProductsTable();
         }
@@ -593,7 +583,6 @@ async function addStock() {
     }
 }
 
-// Product management modal
 function showAddProductModal() {
     isEditMode = false;
     editingProductId = null;
@@ -667,31 +656,30 @@ async function deleteProduct(id) {
     }
 }
 
-// History and reporting
 async function loadHistoryData() {
     const baseFilters = getHistoryFilters();
     let sales = [];
-    let summaryFilters = { ...baseFilters };  // Untuk summary, tanpa filter type/payment spesifik
     
     try {
         if (currentHistoryTab === 'summary') {
-            // Tampilkan SEMUA sales untuk tabel dan summary
-            sales = await ipcRenderer.invoke('db-get-sales', summaryFilters);
-            await loadSummaryData(summaryFilters, sales);  // Pass sales untuk menghindari query ganda
+            sales = await ipcRenderer.invoke('db-get-sales', baseFilters);
+            await loadSummaryData(baseFilters, sales);
         } else if (currentHistoryTab === 'qris' || currentHistoryTab === 'cash') {
-            // Filter by payment_method, tampilkan semua type yang match payment
             const pmFilters = { ...baseFilters, payment_method: currentHistoryTab };
             sales = await ipcRenderer.invoke('db-get-sales', pmFilters);
-            await loadSalesData(null, pmFilters, sales);  // null type, pass sales
+            await loadSalesData(null, pmFilters, sales);
+        } else if (currentHistoryTab === 'fotocopy') {
+            const typeFilters = { ...baseFilters, type: 'fotocopy' };
+            sales = await ipcRenderer.invoke('db-get-sales', typeFilters);
+            await loadFotocopyData(typeFilters, sales);
         } else {
-            // Filter by type (atk, makmin, fotocopy)
             const typeFilters = { ...baseFilters, type: currentHistoryTab };
             sales = await ipcRenderer.invoke('db-get-sales', typeFilters);
             await loadSalesData(currentHistoryTab, typeFilters, sales);
         }
         
-        filteredSales = sales;  // Store filtered results for search
-        searchHistory();  // Apply search on the filtered sales
+        filteredSales = sales;
+        searchHistory();
         
     } catch (error) {
         console.error('Error loading history:', error);
@@ -704,15 +692,31 @@ function searchHistory() {
     let salesToShow = filteredSales;
 
     if (searchTerm) {
-        salesToShow = filteredSales.filter(sale => {
-            const itemsText = sale.items.map(item => item.name).join(' ').toLowerCase();
-            const totalText = sale.total_amount.toString().toLowerCase();
-            const dateText = new Date(sale.created_at).toLocaleDateString('id-ID').toLowerCase();
-            return itemsText.includes(searchTerm) || totalText.includes(searchTerm) || dateText.includes(searchTerm);
-        });
+        if (currentHistoryTab === 'fotocopy') {
+            let filteredItems = [];
+            salesToShow.forEach(sale => {
+                sale.items.forEach(item => {
+                    if ((item.type === 'fotocopy' || item.type === 'print-color') &&
+                        (item.name.toLowerCase().includes(searchTerm) ||
+                         item.total.toString().toLowerCase().includes(searchTerm) ||
+                         sale.created_at.toLowerCase().includes(searchTerm))) {
+                        filteredItems.push({ ...item, saleDate: sale.created_at, paymentMethod: sale.payment_method, saleType: sale.type });
+                    }
+                });
+            });
+            loadSalesTable(filteredItems);
+        } else {
+            salesToShow = filteredSales.filter(sale => {
+                const itemsText = sale.items.map(item => item.name).join(' ').toLowerCase();
+                const totalText = sale.total_amount.toString().toLowerCase();
+                const dateText = sale.created_at.toLowerCase();
+                return itemsText.includes(searchTerm) || totalText.includes(searchTerm) || dateText.includes(searchTerm);
+            });
+            loadSalesTable(salesToShow);
+        }
+    } else {
+        loadSalesTable(currentHistoryTab === 'fotocopy' ? flattenFotocopyItems(salesToShow) : salesToShow);
     }
-
-    loadSalesTable(salesToShow);
 }
 
 function getHistoryFilters() {
@@ -759,7 +763,6 @@ async function loadSummaryData(filters, allSales) {
             totalTransactions += s.total_transactions || 0;
         });
         
-        // Calculate cost and profit for product-based sales (semua sales)
         allSales.forEach(sale => {
             if (sale.type !== 'fotocopy') {
                 sale.items.forEach(item => {
@@ -773,14 +776,16 @@ async function loadSummaryData(filters, allSales) {
         
         totalProfit = totalRevenue - totalCost;
         
-        // Update summary cards
-        const cards = document.querySelectorAll('.summary-card .amount');
+        document.getElementById('fotocopy-extra').style.display = 'none';
+        document.getElementById('print-extra').style.display = 'none';
+        document.getElementById('expenses-extra').style.display = 'none';
+        
+        const cards = document.querySelectorAll('#summary-cards .summary-card .amount');
         cards[0].textContent = `Rp ${formatNumber(totalRevenue)}`;
         cards[1].textContent = `Rp ${formatNumber(totalCost)}`;
         cards[2].textContent = `Rp ${formatNumber(totalProfit)}`;
         cards[3].textContent = totalTransactions.toString();
         
-        // Tabel: gunakan allSales (semua)
         loadSalesTable(allSales);
         
     } catch (error) {
@@ -789,9 +794,6 @@ async function loadSummaryData(filters, allSales) {
 }
 
 async function loadSalesData(type, filters, sales) {
-    loadSalesTable(sales);
-    
-    // Calculate summary berdasarkan sales yang difilter
     let totalRevenue = 0;
     let totalCost = 0;
     let totalTransactions = sales.length;
@@ -810,35 +812,124 @@ async function loadSalesData(type, filters, sales) {
     
     const totalProfit = totalRevenue - totalCost;
     
-    // Update summary cards
-    const cards = document.querySelectorAll('.summary-card .amount');
+    document.getElementById('fotocopy-extra').style.display = 'none';
+    document.getElementById('print-extra').style.display = 'none';
+    document.getElementById('expenses-extra').style.display = 'none';
+    
+    const cards = document.querySelectorAll('#summary-cards .summary-card .amount');
     cards[0].textContent = `Rp ${formatNumber(totalRevenue)}`;
     cards[1].textContent = `Rp ${formatNumber(totalCost)}`;
     cards[2].textContent = `Rp ${formatNumber(totalProfit)}`;
     cards[3].textContent = totalTransactions.toString();
+    
+    loadSalesTable(sales);
 }
 
-function loadSalesTable(sales) {
+async function loadFotocopyData(filters, sales) {
+    let allItems = [];
+    let totalFotocopy = 0;
+    let totalPrintColor = 0;
+    let totalOmset = 0;
+    let totalExpenses = 0;
+    let totalLaba = 0;
+
+    const expenseSummary = await ipcRenderer.invoke('db-get-expenses-summary', filters);
+    totalExpenses = expenseSummary.total_amount || 0;
+
+    sales.forEach(sale => {
+        sale.items.forEach(item => {
+            if (item.type === 'fotocopy') {
+                totalFotocopy += item.total;
+                allItems.push({ ...item, saleDate: sale.created_at, paymentMethod: sale.payment_method, saleType: sale.type });
+            } else if (item.type === 'print-color') {
+                totalPrintColor += item.total;
+                allItems.push({ ...item, saleDate: sale.created_at, paymentMethod: sale.payment_method, saleType: sale.type });
+            }
+        });
+    });
+
+    totalOmset = totalFotocopy + totalPrintColor;
+    totalLaba = totalOmset - totalExpenses;
+
+    updateSummaryCardsForFotocopy(totalOmset, totalFotocopy, totalPrintColor, totalExpenses, totalLaba);
+
+    loadSalesTable(allItems);
+}
+
+function updateSummaryCardsForFotocopy(omset, fotocopy, print, expenses, laba) {
+    const cards = document.querySelectorAll('#summary-cards .summary-card .amount');
+    cards[0].textContent = `Rp ${formatNumber(omset)}`;
+    cards[1].textContent = `Rp 0`;
+    cards[2].textContent = `Rp ${formatNumber(laba)}`;
+    cards[3].textContent = filteredSales.length.toString();
+    
+    document.getElementById('fotocopy-extra').style.display = 'block';
+    document.getElementById('print-extra').style.display = 'block';
+    document.getElementById('expenses-extra').style.display = 'block';
+    
+    const extraCards = document.querySelectorAll('#summary-cards .summary-card');
+    extraCards[4].querySelector('.amount').textContent = `Rp ${formatNumber(fotocopy)}`;
+    extraCards[5].querySelector('.amount').textContent = `Rp ${formatNumber(print)}`;
+    extraCards[6].querySelector('.amount').textContent = `Rp ${formatNumber(expenses)}`;
+}
+
+function flattenFotocopyItems(sales) {
+    let allItems = [];
+    sales.forEach(sale => {
+        sale.items.forEach(item => {
+            if (item.type === 'fotocopy' || item.type === 'print-color') {
+                allItems.push({ ...item, saleDate: sale.created_at, paymentMethod: sale.payment_method, saleType: sale.type });
+            }
+        });
+    });
+    return allItems;
+}
+
+function loadSalesTable(itemsOrSales) {
     const tbody = document.querySelector('#history-table tbody');
     tbody.innerHTML = '';
     
-    sales.forEach(sale => {
-        const row = document.createElement('tr');
-        const date = new Date(sale.created_at).toLocaleDateString('id-ID');
-        const itemsText = sale.items.map(item => 
-            `${item.name} (${item.quantity}x)`
-        ).join(', ');
-        const methodLabel = sale.payment_method === 'cash' ? 'Cash' : 'QRIS';
-        
-        row.innerHTML = `
-            <td>${date}</td>
-            <td>${getTypeLabel(sale.type)}</td>
-            <td>${methodLabel}</td>
-            <td>Rp ${formatNumber(sale.total_amount)}</td>
-            <td>${itemsText}</td>
-        `;
-        tbody.appendChild(row);
-    });
+    if (currentHistoryTab === 'fotocopy') {
+        itemsOrSales.forEach(item => {
+            const row = document.createElement('tr');
+            const typeLabel = item.type === 'fotocopy' ? 'Fotocopy' : 'Print Warna';
+            row.innerHTML = `
+                <td>${item.saleDate}</td>
+                <td>${typeLabel}</td>
+                <td>${item.name}</td>
+                <td>${item.paymentMethod.toUpperCase()}</td>
+                <td>Rp ${formatNumber(item.price)}</td>
+                <td>${item.quantity}</td>
+                <td>Rp ${formatNumber(item.total)}</td>
+                <td></td>
+            `;
+            tbody.appendChild(row);
+        });
+    } else {
+        itemsOrSales.forEach(sale => {
+            sale.items.forEach((item, index) => {
+                const row = document.createElement('tr');
+                const typeLabel = getTypeLabel(sale.type);
+                row.innerHTML = `
+                    <td>${sale.created_at}</td>
+                    <td>${typeLabel}</td>
+                    <td>${item.name}</td>
+                    <td>${sale.payment_method.toUpperCase()}</td>
+                    <td>Rp ${formatNumber(item.price)}</td>
+                    <td>${item.quantity}</td>
+                    <td>Rp ${formatNumber(item.total)}</td>
+                    <td>
+                        ${index === 0 ? `
+                            <button class="btn-danger btn-sm" onclick="deleteSale(${sale.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        ` : ''}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        });
+    }
 }
 
 function getTypeLabel(type) {
@@ -863,7 +954,216 @@ function updateHistoryData() {
     loadHistoryData();
 }
 
-// Modal management
+async function loadExpensesData() {
+    const filters = getExpensesFilters();
+    
+    try {
+        const expenses = await ipcRenderer.invoke('db-get-expenses', filters);
+        const expenseSummary = await ipcRenderer.invoke('db-get-expenses-summary', filters);
+
+        const salesFilters = { ...filters, type: 'fotocopy' };
+        const sales = await ipcRenderer.invoke('db-get-sales', salesFilters);
+        let totalFotocopy = 0;
+        let totalPrintColor = 0;
+        let totalOmset = 0;
+
+        sales.forEach(sale => {
+            sale.items.forEach(item => {
+                if (item.type === 'fotocopy') {
+                    totalFotocopy += item.total;
+                } else if (item.type === 'print-color') {
+                    totalPrintColor += item.total;
+                }
+            });
+        });
+
+        totalOmset = totalFotocopy + totalPrintColor;
+        const totalLaba = totalOmset - (expenseSummary.total_amount || 0);
+
+        const cards = document.querySelectorAll('#expenses-summary-cards .summary-card .amount');
+        cards[0].textContent = `Rp ${formatNumber(totalOmset)}`;
+        cards[1].textContent = `Rp ${formatNumber(totalFotocopy)}`;
+        cards[2].textContent = `Rp ${formatNumber(totalPrintColor)}`;
+        cards[3].textContent = `Rp ${formatNumber(expenseSummary.total_amount || 0)}`;
+        cards[4].textContent = `Rp ${formatNumber(totalLaba)}`;
+
+        filteredExpenses = expenses;
+        searchExpenses();
+        
+    } catch (error) {
+        console.error('Error loading expenses:', error);
+        showNotification('Error loading expenses data', 'error');
+    }
+}
+
+function getExpensesFilters() {
+    const period = document.getElementById('expenses-period-filter').value;
+    const today = new Date();
+    let dateFrom, dateTo;
+    
+    switch (period) {
+        case 'today':
+            dateFrom = dateTo = today.toISOString().split('T')[0];
+            break;
+        case 'week':
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() - today.getDay());
+            dateFrom = weekStart.toISOString().split('T')[0];
+            dateTo = today.toISOString().split('T')[0];
+            break;
+        case 'month':
+            dateFrom = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+            dateTo = today.toISOString().split('T')[0];
+            break;
+        case 'custom':
+            dateFrom = document.getElementById('expenses-date-from').value;
+            dateTo = document.getElementById('expenses-date-to').value;
+            break;
+        default:
+            dateFrom = dateTo = today.toISOString().split('T')[0];
+    }
+    
+    return { date_from: dateFrom, date_to: dateTo };
+}
+
+function searchExpenses() {
+    const searchTerm = document.getElementById('expenses-search').value.toLowerCase();
+    let expensesToShow = filteredExpenses;
+
+    if (searchTerm) {
+        expensesToShow = filteredExpenses.filter(expense => 
+            expense.description.toLowerCase().includes(searchTerm) ||
+            expense.created_at.toLowerCase().includes(searchTerm)
+        );
+    }
+
+    loadExpensesTable(expensesToShow);
+}
+
+function loadExpensesTable(expenses) {
+    const tbody = document.querySelector('#expenses-table tbody');
+    tbody.innerHTML = '';
+    
+    expenses.forEach(expense => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${expense.created_at.split(', ')[0]}</td>
+            <td>${expense.description}</td>
+            <td>Rp ${formatNumber(expense.amount)}</td>
+            <td>
+                <div class="action-buttons">
+                    <button class="btn-primary btn-sm" onclick="showEditExpenseModal(${JSON.stringify(expense).replace(/"/g, '&quot;')})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-danger btn-sm" onclick="deleteExpense(${expense.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function updateExpensesData() {
+    const period = document.getElementById('expenses-period-filter').value;
+    const customRange = document.getElementById('expenses-custom-date-range');
+    
+    if (period === 'custom') {
+        customRange.style.display = 'flex';
+    } else {
+        customRange.style.display = 'none';
+    }
+    
+    loadExpensesData();
+}
+
+function showAddExpenseModal() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('expense-date').value = today;
+    document.getElementById('expense-description').value = '';
+    document.getElementById('expense-amount').value = '';
+    showModal('add-expense-modal');
+}
+
+async function saveExpense() {
+    const expenseData = {
+        description: document.getElementById('expense-description').value.trim(),
+        amount: parseFloat(document.getElementById('expense-amount').value) || 0
+    };
+    
+    if (!expenseData.description || expenseData.amount <= 0) {
+        showNotification('Mohon lengkapi deskripsi dan biaya', 'warning');
+        return;
+    }
+    
+    try {
+        await ipcRenderer.invoke('db-add-expense', expenseData);
+        showNotification('Pengeluaran berhasil ditambahkan', 'success');
+        closeModal('add-expense-modal');
+        loadExpensesData();
+    } catch (error) {
+        console.error('Error saving expense:', error);
+        showNotification('Error menambahkan pengeluaran', 'error');
+    }
+}
+
+function showEditExpenseModal(expense) {
+    editingExpenseId = expense.id;
+    document.getElementById('edit-expense-id').value = expense.id;
+    document.getElementById('edit-expense-description').value = expense.description;
+    document.getElementById('edit-expense-amount').value = expense.amount;
+    showModal('edit-expense-modal');
+}
+
+async function updateExpense() {
+    const expenseData = {
+        description: document.getElementById('edit-expense-description').value.trim(),
+        amount: parseFloat(document.getElementById('edit-expense-amount').value) || 0
+    };
+    
+    if (!expenseData.description || expenseData.amount <= 0) {
+        showNotification('Mohon lengkapi deskripsi dan biaya', 'warning');
+        return;
+    }
+    
+    try {
+        await ipcRenderer.invoke('db-update-expense', editingExpenseId, expenseData);
+        showNotification('Pengeluaran berhasil diupdate', 'success');
+        closeModal('edit-expense-modal');
+        loadExpensesData();
+    } catch (error) {
+        console.error('Error updating expense:', error);
+        showNotification('Error mengupdate pengeluaran', 'error');
+    }
+}
+
+async function deleteExpense(id) {
+    if (!confirm('Yakin ingin menghapus pengeluaran ini?')) return;
+    
+    try {
+        await ipcRenderer.invoke('db-delete-expense', id);
+        showNotification('Pengeluaran berhasil dihapus', 'success');
+        loadExpensesData();
+    } catch (error) {
+        console.error('Error deleting expense:', error);
+        showNotification('Error menghapus pengeluaran', 'error');
+    }
+}
+
+async function deleteSale(id) {
+    if (!confirm('Yakin ingin menghapus data penjualan ini?')) return;
+    
+    try {
+        await ipcRenderer.invoke('db-delete-sale', id);
+        showNotification('Data penjualan berhasil dihapus', 'success');
+        loadHistoryData();
+    } catch (error) {
+        console.error('Error deleting sale:', error);
+        showNotification('Error menghapus data penjualan', 'error');
+    }
+}
+
 function showModal(modalId) {
     document.getElementById(modalId).classList.add('show');
 }
@@ -872,7 +1172,6 @@ function closeModal(modalId) {
     document.getElementById(modalId).classList.remove('show');
 }
 
-// Utility functions
 function formatNumber(num) {
     return new Intl.NumberFormat('id-ID').format(num);
 }
@@ -920,22 +1219,19 @@ function showNotification(message, type = 'info') {
     }, 5000);
 }
 
-// Event listeners
 document.getElementById('period-filter').addEventListener('change', updateHistoryData);
+document.getElementById('expenses-period-filter').addEventListener('change', updateExpensesData);
 
-// Tambah event listener untuk payment-method change
 if (document.getElementById('payment-method')) {
     document.getElementById('payment-method').addEventListener('change', toggleCashInput);
 }
 
-// Close modals when clicking outside
 window.addEventListener('click', (event) => {
     if (event.target.classList.contains('modal')) {
         event.target.classList.remove('show');
     }
 });
 
-// Keyboard shortcuts
 document.addEventListener('keydown', (event) => {
     if (event.ctrlKey) {
         switch (event.key) {
@@ -951,10 +1247,17 @@ document.addEventListener('keydown', (event) => {
                 event.preventDefault();
                 showPage('history');
                 break;
+            case '4':
+                event.preventDefault();
+                showPage('fotocopy-expenses');
+                break;
             case 'n':
                 if (currentPage === 'products') {
                     event.preventDefault();
                     showAddProductModal();
+                } else if (currentPage === 'fotocopy-expenses') {
+                    event.preventDefault();
+                    showAddExpenseModal();
                 }
                 break;
         }

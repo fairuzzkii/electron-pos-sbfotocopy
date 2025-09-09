@@ -9,7 +9,6 @@ class Database {
     }
 
     init() {
-        // Create tables
         this.db.serialize(() => {
             // Products table
             this.db.run(`
@@ -17,7 +16,7 @@ class Database {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     code TEXT UNIQUE,
                     name TEXT NOT NULL,
-                    type TEXT NOT NULL, -- 'atk' or 'makmin'
+                    type TEXT NOT NULL,
                     purchase_price REAL NOT NULL,
                     selling_price REAL NOT NULL,
                     stock INTEGER DEFAULT 0,
@@ -30,10 +29,20 @@ class Database {
             this.db.run(`
                 CREATE TABLE IF NOT EXISTS sales (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    type TEXT NOT NULL, -- 'atk', 'makmin', 'fotocopy'
-                    payment_method TEXT NOT NULL, -- 'cash' or 'qris'
+                    type TEXT NOT NULL,
+                    payment_method TEXT NOT NULL,
                     total_amount REAL NOT NULL,
-                    items TEXT NOT NULL, -- JSON string
+                    items TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
+            // Fotocopy Expenses table
+            this.db.run(`
+                CREATE TABLE IF NOT EXISTS fotocopy_expenses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    description TEXT NOT NULL,
+                    amount REAL NOT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             `);
@@ -44,19 +53,23 @@ class Database {
                     this.insertSampleData();
                 }
             });
+
+            // Insert sample expenses if empty
+            this.db.get("SELECT COUNT(*) as count FROM fotocopy_expenses", (err, row) => {
+                if (!err && row.count === 0) {
+                    this.insertSampleExpenses();
+                }
+            });
         });
     }
 
     insertSampleData() {
         const sampleProducts = [
-            // ATK
             ['P001', 'Pulpen Biru Standard', 'atk', 2000, 3000, 50],
             ['P002', 'Pensil 2B Faber Castell', 'atk', 3000, 4500, 30],
             ['P003', 'Penggaris 30cm', 'atk', 5000, 7000, 25],
             ['P004', 'Kertas A4 70gsm', 'atk', 45000, 55000, 10],
             ['P005', 'Spidol Hitam', 'atk', 8000, 12000, 20],
-            
-            // Makanan & Minuman
             ['M001', 'Air Mineral 600ml', 'makmin', 2000, 3000, 100],
             ['M002', 'Teh Botol Sosro', 'makmin', 4000, 6000, 50],
             ['M003', 'Biskuit Marie', 'makmin', 8000, 12000, 30],
@@ -71,6 +84,25 @@ class Database {
 
         sampleProducts.forEach(product => {
             stmt.run(product);
+        });
+
+        stmt.finalize();
+    }
+
+    insertSampleExpenses() {
+        const sampleExpenses = [
+            ['Pembelian tinta printer', 50000],
+            ['Biaya listrik bulan ini', 20000],
+            ['Kertas fotokopi 100 rim', 100000]
+        ];
+
+        const stmt = this.db.prepare(`
+            INSERT INTO fotocopy_expenses (description, amount)
+            VALUES (?, ?)
+        `);
+
+        sampleExpenses.forEach(expense => {
+            stmt.run(expense);
         });
 
         stmt.finalize();
@@ -145,7 +177,7 @@ class Database {
         });
     }
 
-    updateStock(productId, delta) {  // Modifikasi: delta bisa + atau - (misal +10 untuk tambah stok)
+    updateStock(productId, delta) {
         return new Promise((resolve, reject) => {
             this.db.run(`
                 UPDATE products 
@@ -189,7 +221,7 @@ class Database {
                 params.push(filters.type);
             }
 
-            if (filters.payment_method) {  // Tambah filter payment_method
+            if (filters.payment_method) {
                 conditions.push("payment_method = ?");
                 params.push(filters.payment_method);
             }
@@ -216,7 +248,11 @@ class Database {
                 } else {
                     resolve(rows.map(row => ({
                         ...row,
-                        items: JSON.parse(row.items)
+                        items: JSON.parse(row.items),
+                        created_at: new Date(row.created_at).toLocaleString('id-ID', { 
+                            year: 'numeric', month: '2-digit', day: '2-digit', 
+                            hour: '2-digit', minute: '2-digit', second: '2-digit' 
+                        })
                     })));
                 }
             });
@@ -268,6 +304,138 @@ class Database {
                     reject(err);
                 } else {
                     resolve(rows);
+                }
+            });
+        });
+    }
+
+    getExpenses(filters = {}) {
+        return new Promise((resolve, reject) => {
+            let query = "SELECT * FROM fotocopy_expenses";
+            let params = [];
+            let conditions = [];
+
+            if (filters.date_from) {
+                conditions.push("date(created_at) >= ?");
+                params.push(filters.date_from);
+            }
+
+            if (filters.date_to) {
+                conditions.push("date(created_at) <= ?");
+                params.push(filters.date_to);
+            }
+
+            if (conditions.length > 0) {
+                query += " WHERE " + conditions.join(" AND ");
+            }
+
+            query += " ORDER BY created_at DESC";
+
+            this.db.all(query, params, (err, rows) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(rows.map(row => ({
+                        ...row,
+                        created_at: new Date(row.created_at).toLocaleString('id-ID', { 
+                            year: 'numeric', month: '2-digit', day: '2-digit', 
+                            hour: '2-digit', minute: '2-digit' 
+                        })
+                    })));
+                }
+            });
+        });
+    }
+
+    getExpensesSummary(filters = {}) {
+        return new Promise((resolve, reject) => {
+            let query = `
+                SELECT 
+                    COUNT(*) as total_expenses,
+                    SUM(amount) as total_amount
+                FROM fotocopy_expenses
+            `;
+            let params = [];
+            let conditions = [];
+
+            if (filters.date_from) {
+                conditions.push("date(created_at) >= ?");
+                params.push(filters.date_from);
+            }
+
+            if (filters.date_to) {
+                conditions.push("date(created_at) <= ?");
+                params.push(filters.date_to);
+            }
+
+            if (conditions.length > 0) {
+                query += " WHERE " + conditions.join(" AND ");
+            }
+
+            this.db.get(query, params, (err, row) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(row || { total_expenses: 0, total_amount: 0 });
+                }
+            });
+        });
+    }
+
+    addExpense(expense) {
+        return new Promise((resolve, reject) => {
+            const { description, amount } = expense;
+            
+            this.db.run(`
+                INSERT INTO fotocopy_expenses (description, amount)
+                VALUES (?, ?)
+            `, [description, amount], function(err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve({ id: this.lastID });
+                }
+            });
+        });
+    }
+
+    updateExpense(id, expense) {
+        return new Promise((resolve, reject) => {
+            const { description, amount } = expense;
+            
+            this.db.run(`
+                UPDATE fotocopy_expenses 
+                SET description = ?, amount = ?, created_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            `, [description, amount, id], function(err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve({ changes: this.changes });
+                }
+            });
+        });
+    }
+
+    deleteExpense(id) {
+        return new Promise((resolve, reject) => {
+            this.db.run("DELETE FROM fotocopy_expenses WHERE id = ?", [id], function(err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve({ changes: this.changes });
+                }
+            });
+        });
+    }
+
+    deleteSale(id) {
+        return new Promise((resolve, reject) => {
+            this.db.run("DELETE FROM sales WHERE id = ?", [id], function(err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve({ changes: this.changes });
                 }
             });
         });

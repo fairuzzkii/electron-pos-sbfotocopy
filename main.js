@@ -22,11 +22,8 @@ function createWindow() {
 
     mainWindow.loadFile('index.html');
 
-    // Show window when ready
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
-        
-        // Open DevTools in development
         if (process.argv.includes('--dev')) {
             mainWindow.webContents.openDevTools();
         }
@@ -38,9 +35,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-    // Initialize database
     db = new Database();
-    
     createWindow();
 
     app.on('activate', () => {
@@ -56,7 +51,6 @@ app.on('window-all-closed', () => {
     }
 });
 
-// IPC handlers for database operations
 ipcMain.handle('db-get-products', (event, type) => {
     return db.getProducts(type);
 });
@@ -85,8 +79,32 @@ ipcMain.handle('db-get-sales-summary', (event, filters) => {
     return db.getSalesSummary(filters);
 });
 
-ipcMain.handle('db-update-stock', (event, productId, delta) => {  // Modifikasi: delta
+ipcMain.handle('db-update-stock', (event, productId, delta) => {
     return db.updateStock(productId, delta);
+});
+
+ipcMain.handle('db-get-expenses', (event, filters) => {
+    return db.getExpenses(filters);
+});
+
+ipcMain.handle('db-get-expenses-summary', (event, filters) => {
+    return db.getExpensesSummary(filters);
+});
+
+ipcMain.handle('db-add-expense', (event, expense) => {
+    return db.addExpense(expense);
+});
+
+ipcMain.handle('db-update-expense', (event, id, expense) => {
+    return db.updateExpense(id, expense);
+});
+
+ipcMain.handle('db-delete-expense', (event, id) => {
+    return db.deleteExpense(id);
+});
+
+ipcMain.handle('db-delete-sale', (event, id) => {
+    return db.deleteSale(id);
 });
 
 process.on('uncaughtException', (error) => {
