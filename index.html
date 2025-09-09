@@ -86,7 +86,6 @@
                                 <select id="fotocopy-type" required>
                                     <option value="">Pilih Jenis</option>
                                     <option value="fotocopy">Fotocopy</option>
-                                    <option value="print-bw">Print Hitam Putih</option>
                                     <option value="print-color">Print Warna</option>
                                 </select>
                             </div>
@@ -140,8 +139,12 @@
 
                 <div class="product-management">
                     <div class="management-header">
+                        <input type="text" id="product-search" placeholder="Cari barang berdasarkan kode atau nama..." onkeyup="searchProductsTable()">
                         <button onclick="showAddProductModal()" class="btn-primary">
                             <i class="fas fa-plus"></i> Tambah Barang
+                        </button>
+                        <button onclick="showAddStockModal()" class="btn-primary">
+                            <i class="fas fa-plus-circle"></i> Tambah Stok
                         </button>
                     </div>
 
@@ -153,7 +156,7 @@
                                     <th>Nama Barang</th>
                                     <th>Harga Beli</th>
                                     <th>Harga Jual</th>
-                                    <th>Stok</th>
+                                    <th>Stok Saat Ini</th>
                                     <th>Aksi</th>
                                 </tr>
                             </thead>
@@ -183,6 +186,12 @@
                     <button class="tab-btn" onclick="showHistoryTab('fotocopy')">
                         <i class="fas fa-print"></i> Fotocopy & Print
                     </button>
+                    <button class="tab-btn" onclick="showHistoryTab('qris')">
+                        <i class="fas fa-qrcode"></i> QRIS
+                    </button>
+                    <button class="tab-btn" onclick="showHistoryTab('cash')">
+                        <i class="fas fa-money-bill-wave"></i> Cash
+                    </button>
                 </div>
 
                 <div class="filter-section">
@@ -199,6 +208,9 @@
                         <input type="date" id="date-from">
                         <input type="date" id="date-to">
                         <button onclick="updateHistoryData()" class="btn-secondary">Terapkan</button>
+                    </div>
+                    <div class="filter-group">
+                        <input type="text" id="history-search" placeholder="Cari berdasarkan item, total, atau tanggal..." onkeyup="searchHistory()">
                     </div>
                 </div>
 
@@ -227,6 +239,7 @@
                             <tr>
                                 <th>Tanggal</th>
                                 <th>Jenis</th>
+                                <th>Metode Bayar</th>
                                 <th>Total</th>
                                 <th>Items</th>
                             </tr>
@@ -252,7 +265,14 @@
                     <div class="total-amount">Rp <span id="payment-total">0</span></div>
                 </div>
                 <div class="form-group">
-                    <label>Uang yang diterima:</label>
+                    <label>Metode Pembayaran:</label>
+                    <select id="payment-method" required>
+                        <option value="cash">Cash</option>
+                        <option value="qris">QRIS</option>
+                    </select>
+                </div>
+                <div class="form-group" id="cash-input-group" style="display: block;">
+                    <label>Uang yang diterima (untuk Cash):</label>
                     <input type="number" id="payment-received" placeholder="0" min="0" onkeyup="calculateChange()">
                 </div>
                 <div class="change-amount">
@@ -308,6 +328,36 @@
             <div class="modal-footer">
                 <button onclick="closeModal('product-modal')" class="btn-secondary">Batal</button>
                 <button onclick="saveProduct()" class="btn-success">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Stock Modal -->
+    <div id="add-stock-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Tambah Stok</h3>
+                <span class="close" onclick="closeModal('add-stock-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Cari Produk:</label>
+                    <input type="text" id="stock-search" placeholder="Cari berdasarkan kode atau nama..." onkeyup="filterStockSelect()">
+                </div>
+                <div class="form-group">
+                    <label>Pilih Produk:</label>
+                    <select id="stock-product-select" required>
+                        <option value="">-- Pilih Produk --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Jumlah Tambah:</label>
+                    <input type="number" id="stock-add-amount" min="1" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeModal('add-stock-modal')" class="btn-secondary">Batal</button>
+                <button onclick="addStock()" class="btn-success">Tambah Stok</button>
             </div>
         </div>
     </div>

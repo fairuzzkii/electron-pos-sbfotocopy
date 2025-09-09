@@ -31,6 +31,7 @@ class Database {
                 CREATE TABLE IF NOT EXISTS sales (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     type TEXT NOT NULL, -- 'atk', 'makmin', 'fotocopy'
+                    payment_method TEXT NOT NULL, -- 'cash' or 'qris'
                     total_amount REAL NOT NULL,
                     items TEXT NOT NULL, -- JSON string
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -144,13 +145,13 @@ class Database {
         });
     }
 
-    updateStock(productId, quantity) {
+    updateStock(productId, delta) {  // Modifikasi: delta bisa + atau - (misal +10 untuk tambah stok)
         return new Promise((resolve, reject) => {
             this.db.run(`
                 UPDATE products 
-                SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP 
+                SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP 
                 WHERE id = ?
-            `, [quantity, productId], function(err) {
+            `, [delta, productId], function(err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -162,12 +163,12 @@ class Database {
 
     addSale(sale) {
         return new Promise((resolve, reject) => {
-            const { type, total_amount, items } = sale;
+            const { type, payment_method, total_amount, items } = sale;
             
             this.db.run(`
-                INSERT INTO sales (type, total_amount, items)
-                VALUES (?, ?, ?)
-            `, [type, total_amount, JSON.stringify(items)], function(err) {
+                INSERT INTO sales (type, payment_method, total_amount, items)
+                VALUES (?, ?, ?, ?)
+            `, [type, payment_method, total_amount, JSON.stringify(items)], function(err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -186,6 +187,11 @@ class Database {
             if (filters.type) {
                 conditions.push("type = ?");
                 params.push(filters.type);
+            }
+
+            if (filters.payment_method) {  // Tambah filter payment_method
+                conditions.push("payment_method = ?");
+                params.push(filters.payment_method);
             }
 
             if (filters.date_from) {
@@ -222,6 +228,7 @@ class Database {
             let query = `
                 SELECT 
                     type,
+                    payment_method,
                     COUNT(*) as total_transactions,
                     SUM(total_amount) as total_revenue,
                     AVG(total_amount) as avg_transaction
@@ -233,6 +240,11 @@ class Database {
             if (filters.type) {
                 conditions.push("type = ?");
                 params.push(filters.type);
+            }
+
+            if (filters.payment_method) {
+                conditions.push("payment_method = ?");
+                params.push(filters.payment_method);
             }
 
             if (filters.date_from) {
@@ -249,7 +261,7 @@ class Database {
                 query += " WHERE " + conditions.join(" AND ");
             }
 
-            query += " GROUP BY type";
+            query += " GROUP BY type, payment_method";
 
             this.db.all(query, params, (err, rows) => {
                 if (err) {

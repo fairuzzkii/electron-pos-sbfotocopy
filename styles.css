@@ -762,3 +762,34 @@ body {
     --success-color: #198754;
     --warning-color: #ffc107;
 }
+
+/* Tambahan untuk management-header search */
+.management-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.management-header input {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+/* Filter group untuk history search */
+.filter-section .filter-group input {
+    min-width: 200px;
+}
+
+/* Icon untuk tab QRIS dan Cash (sudah ada Font Awesome) */
+.history-tabs .tab-btn i.fas.fa-qrcode,
+.history-tabs .tab-btn i.fas.fa-money-bill-wave {
+    width: 16px;
+}

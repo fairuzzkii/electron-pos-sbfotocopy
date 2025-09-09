@@ -85,8 +85,8 @@ ipcMain.handle('db-get-sales-summary', (event, filters) => {
     return db.getSalesSummary(filters);
 });
 
-ipcMain.handle('db-update-stock', (event, productId, quantity) => {
-    return db.updateStock(productId, quantity);
+ipcMain.handle('db-update-stock', (event, productId, delta) => {  // Modifikasi: delta
+    return db.updateStock(productId, delta);
 });
 
 process.on('uncaughtException', (error) => {
