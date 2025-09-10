@@ -5,3 +5,7 @@ Aplikasi Point of Sale (POS) desktop untuk SB Fotocopy yang dibangun dengan Elec
 
 Fitur: ajdaojdaojdaidjaidjidiDN;IO;NDIqdnqIBFo;bqeio;bf
 
+addsddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+
+ffffffffffffffffffffffffff
+fdddddddddddddddddddddddd
