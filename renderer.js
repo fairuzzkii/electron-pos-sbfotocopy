@@ -30,10 +30,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     allProducts = [...products.atk, ...products.makmin];
     populateStockSelect();
-
-    if (currentPage === 'fotocopy-expenses') {
-        loadExpensesData();
-    }
 });
 
 function toggleTheme() {
@@ -954,13 +950,29 @@ function updateHistoryData() {
     loadHistoryData();
 }
 
+async function deleteSale(id) {
+    if (!confirm('Yakin ingin menghapus penjualan ini?')) return;
+    
+    try {
+        await ipcRenderer.invoke('db-delete-sale', id);
+        showNotification('Penjualan berhasil dihapus', 'success');
+        loadHistoryData();
+    } catch (error) {
+        console.error('Error deleting sale:', error);
+        showNotification('Error menghapus penjualan', 'error');
+    }
+}
+
 async function loadExpensesData() {
     const filters = getExpensesFilters();
     
+    console.log('Filter yang digunakan:', filters);
+    
     try {
         const expenses = await ipcRenderer.invoke('db-get-expenses', filters);
+        console.log('Data pengeluaran yang diambil:', expenses);
+        
         const expenseSummary = await ipcRenderer.invoke('db-get-expenses-summary', filters);
-
         const salesFilters = { ...filters, type: 'fotocopy' };
         const sales = await ipcRenderer.invoke('db-get-sales', salesFilters);
         let totalFotocopy = 0;
@@ -997,7 +1009,7 @@ async function loadExpensesData() {
 }
 
 function getExpensesFilters() {
-    const period = document.getElementById('expenses-period-filter').value;
+    const period = document.getElementById('expenses-period-filter').value || 'month';
     const today = new Date();
     let dateFrom, dateTo;
     
@@ -1020,7 +1032,8 @@ function getExpensesFilters() {
             dateTo = document.getElementById('expenses-date-to').value;
             break;
         default:
-            dateFrom = dateTo = today.toISOString().split('T')[0];
+            dateFrom = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+            dateTo = today.toISOString().split('T')[0];
     }
     
     return { date_from: dateFrom, date_to: dateTo };
@@ -1029,14 +1042,14 @@ function getExpensesFilters() {
 function searchExpenses() {
     const searchTerm = document.getElementById('expenses-search').value.toLowerCase();
     let expensesToShow = filteredExpenses;
-
+    
     if (searchTerm) {
-        expensesToShow = filteredExpenses.filter(expense => 
+        expensesToShow = filteredExpenses.filter(expense =>
             expense.description.toLowerCase().includes(searchTerm) ||
             expense.created_at.toLowerCase().includes(searchTerm)
         );
     }
-
+    
     loadExpensesTable(expensesToShow);
 }
 
@@ -1044,10 +1057,19 @@ function loadExpensesTable(expenses) {
     const tbody = document.querySelector('#expenses-table tbody');
     tbody.innerHTML = '';
     
+    if (expenses.length === 0) {
+        showNotification('Tidak ada pengeluaran ditemukan untuk periode ini', 'info');
+    }
+    
     expenses.forEach(expense => {
+        const formattedDate = new Date(expense.created_at).toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${expense.created_at.split(', ')[0]}</td>
+            <td>${formattedDate}</td>
             <td>${expense.description}</td>
             <td>Rp ${formatNumber(expense.amount)}</td>
             <td>
@@ -1065,22 +1087,8 @@ function loadExpensesTable(expenses) {
     });
 }
 
-function updateExpensesData() {
-    const period = document.getElementById('expenses-period-filter').value;
-    const customRange = document.getElementById('expenses-custom-date-range');
-    
-    if (period === 'custom') {
-        customRange.style.display = 'flex';
-    } else {
-        customRange.style.display = 'none';
-    }
-    
-    loadExpensesData();
-}
-
 function showAddExpenseModal() {
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('expense-date').value = today;
+    document.getElementById('expense-date').value = new Date().toISOString().split('T')[0];
     document.getElementById('expense-description').value = '';
     document.getElementById('expense-amount').value = '';
     showModal('add-expense-modal');
@@ -1089,11 +1097,14 @@ function showAddExpenseModal() {
 async function saveExpense() {
     const expenseData = {
         description: document.getElementById('expense-description').value.trim(),
-        amount: parseFloat(document.getElementById('expense-amount').value) || 0
+        amount: parseFloat(document.getElementById('expense-amount').value) || 0,
+        created_at: document.getElementById('expense-date').value
     };
     
-    if (!expenseData.description || expenseData.amount <= 0) {
-        showNotification('Mohon lengkapi deskripsi dan biaya', 'warning');
+    console.log('Menyimpan pengeluaran:', expenseData);
+    
+    if (!expenseData.description || expenseData.amount <= 0 || !expenseData.created_at) {
+        showNotification('Mohon lengkapi deskripsi, biaya, dan tanggal', 'warning');
         return;
     }
     
@@ -1111,6 +1122,7 @@ async function saveExpense() {
 function showEditExpenseModal(expense) {
     editingExpenseId = expense.id;
     document.getElementById('edit-expense-id').value = expense.id;
+    document.getElementById('edit-expense-date').value = expense.created_at.split(' ')[0];
     document.getElementById('edit-expense-description').value = expense.description;
     document.getElementById('edit-expense-amount').value = expense.amount;
     showModal('edit-expense-modal');
@@ -1119,11 +1131,12 @@ function showEditExpenseModal(expense) {
 async function updateExpense() {
     const expenseData = {
         description: document.getElementById('edit-expense-description').value.trim(),
-        amount: parseFloat(document.getElementById('edit-expense-amount').value) || 0
+        amount: parseFloat(document.getElementById('edit-expense-amount').value) || 0,
+        created_at: document.getElementById('edit-expense-date').value
     };
     
-    if (!expenseData.description || expenseData.amount <= 0) {
-        showNotification('Mohon lengkapi deskripsi dan biaya', 'warning');
+    if (!expenseData.description || expenseData.amount <= 0 || !expenseData.created_at) {
+        showNotification('Mohon lengkapi deskripsi, biaya, dan tanggal', 'warning');
         return;
     }
     
@@ -1151,17 +1164,17 @@ async function deleteExpense(id) {
     }
 }
 
-async function deleteSale(id) {
-    if (!confirm('Yakin ingin menghapus data penjualan ini?')) return;
+function updateExpensesData() {
+    const period = document.getElementById('expenses-period-filter').value;
+    const customRange = document.getElementById('expenses-custom-date-range');
     
-    try {
-        await ipcRenderer.invoke('db-delete-sale', id);
-        showNotification('Data penjualan berhasil dihapus', 'success');
-        loadHistoryData();
-    } catch (error) {
-        console.error('Error deleting sale:', error);
-        showNotification('Error menghapus data penjualan', 'error');
+    if (period === 'custom') {
+        customRange.style.display = 'flex';
+    } else {
+        customRange.style.display = 'none';
     }
+    
+    loadExpensesData();
 }
 
 function showModal(modalId) {
@@ -1172,100 +1185,23 @@ function closeModal(modalId) {
     document.getElementById(modalId).classList.remove('show');
 }
 
-function formatNumber(num) {
-    return new Intl.NumberFormat('id-ID').format(num);
+function formatNumber(number) {
+    return number.toLocaleString('id-ID', { minimumFractionDigits: 0 });
 }
 
-function showNotification(message, type = 'info') {
+function showNotification(message, type) {
     const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
-    notification.innerHTML = `
-        <span>${message}</span>
-        <button onclick="this.parentElement.remove()">&times;</button>
-    `;
-    
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 1rem 1.5rem;
-        border-radius: 0.5rem;
-        box-shadow: var(--shadow);
-        z-index: 1001;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
-        min-width: 300px;
-        color: white;
-        font-weight: 500;
-    `;
-    
-    const colors = {
-        success: '#28a745',
-        error: '#dc3545',
-        warning: '#ffc107',
-        info: '#007bff'
-    };
-    
-    notification.style.backgroundColor = colors[type] || colors.info;
-    
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
     document.body.appendChild(notification);
     
     setTimeout(() => {
-        if (notification.parentElement) {
-            notification.remove();
-        }
-    }, 5000);
+        notification.classList.add('show');
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.remove();
+            }, 300);
+        }, 3000);
+    }, 100);
 }
-
-document.getElementById('period-filter').addEventListener('change', updateHistoryData);
-document.getElementById('expenses-period-filter').addEventListener('change', updateExpensesData);
-
-if (document.getElementById('payment-method')) {
-    document.getElementById('payment-method').addEventListener('change', toggleCashInput);
-}
-
-window.addEventListener('click', (event) => {
-    if (event.target.classList.contains('modal')) {
-        event.target.classList.remove('show');
-    }
-});
-
-document.addEventListener('keydown', (event) => {
-    if (event.ctrlKey) {
-        switch (event.key) {
-            case '1':
-                event.preventDefault();
-                showPage('dashboard');
-                break;
-            case '2':
-                event.preventDefault();
-                showPage('products');
-                break;
-            case '3':
-                event.preventDefault();
-                showPage('history');
-                break;
-            case '4':
-                event.preventDefault();
-                showPage('fotocopy-expenses');
-                break;
-            case 'n':
-                if (currentPage === 'products') {
-                    event.preventDefault();
-                    showAddProductModal();
-                } else if (currentPage === 'fotocopy-expenses') {
-                    event.preventDefault();
-                    showAddExpenseModal();
-                }
-                break;
-        }
-    }
-    
-    if (event.key === 'Escape') {
-        document.querySelectorAll('.modal.show').forEach(modal => {
-            modal.classList.remove('show');
-        });
-    }
-});

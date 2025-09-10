@@ -28,11 +28,11 @@
                 </a>
                 <a href="#" class="nav-item" onclick="showPage('history')">
                     <i class="fas fa-history"></i>
-                    <span>Riwayat Penjualan</span>
+                    <span>Penjualan</span>
                 </a>
                 <a href="#" class="nav-item" onclick="showPage('fotocopy-expenses')">
                     <i class="fas fa-calculator"></i>
-                    <span>Pengeluaran Fotocopy</span>
+                    <span>Pengeluaran</span>
                 </a>
             </nav>
         </aside>
@@ -264,7 +264,7 @@
                         <select id="expenses-period-filter" onchange="updateExpensesData()">
                             <option value="today">Hari Ini</option>
                             <option value="week">Minggu Ini</option>
-                            <option value="month">Bulan Ini</option>
+                            <option value="month" selected>Bulan Ini</option>
                             <option value="custom">Kustom</option>
                         </select>
                     </div>
@@ -471,6 +471,10 @@
             <div class="modal-body">
                 <input type="hidden" id="edit-expense-id">
                 <div class="form-group">
+                    <label>Tanggal:</label>
+                    <input type="date" id="edit-expense-date" required>
+                </div>
+                <div class="form-group">
                     <label>Deskripsi:</label>
                     <input type="text" id="edit-expense-description" placeholder="Deskripsi pengeluaran..." required>
                 </div>
@@ -485,7 +489,6 @@
             </div>
         </div>
     </div>
-
     <script src="renderer.js"></script>
 </body>
 </html>

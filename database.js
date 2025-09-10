@@ -3,122 +3,85 @@ const path = require('path');
 
 class Database {
     constructor() {
-        const dbPath = path.join(__dirname, 'sb_fotocopy.db');
-        this.db = new sqlite3.Database(dbPath);
-        this.init();
+        this.db = new sqlite3.Database(path.join(__dirname, 'sb_fotocopy.db'), (err) => {
+            if (err) {
+                console.error('Error connecting to database:', err);
+            } else {
+                console.log('Connected to SQLite database');
+                this.init();
+            }
+        });
     }
 
     init() {
         this.db.serialize(() => {
-            // Products table
             this.db.run(`
                 CREATE TABLE IF NOT EXISTS products (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     code TEXT UNIQUE,
-                    name TEXT NOT NULL,
-                    type TEXT NOT NULL,
-                    purchase_price REAL NOT NULL,
-                    selling_price REAL NOT NULL,
-                    stock INTEGER DEFAULT 0,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    name TEXT,
+                    type TEXT,
+                    purchase_price REAL,
+                    selling_price REAL,
+                    stock INTEGER
                 )
             `);
 
-            // Sales table
             this.db.run(`
                 CREATE TABLE IF NOT EXISTS sales (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    type TEXT NOT NULL,
-                    payment_method TEXT NOT NULL,
-                    total_amount REAL NOT NULL,
-                    items TEXT NOT NULL,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    type TEXT,
+                    payment_method TEXT,
+                    total_amount REAL,
+                    items TEXT,
+                    created_at TEXT DEFAULT (datetime('now', 'localtime'))
                 )
             `);
 
-            // Fotocopy Expenses table
             this.db.run(`
                 CREATE TABLE IF NOT EXISTS fotocopy_expenses (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    description TEXT NOT NULL,
-                    amount REAL NOT NULL,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    description TEXT,
+                    amount REAL,
+                    created_at TEXT
                 )
             `);
 
-            // Insert sample data if empty
-            this.db.get("SELECT COUNT(*) as count FROM products", (err, row) => {
-                if (!err && row.count === 0) {
-                    this.insertSampleData();
-                }
+            const sampleProducts = [
+                ['ATK001', 'Pulpen', 'atk', 2000, 3000, 50],
+                ['ATK002', 'Buku Tulis', 'atk', 3000, 5000, 30],
+                ['MM001', 'Kopi Sachet', 'makmin', 1000, 2000, 100],
+                ['MM002', 'Teh Botol', 'makmin', 3000, 5000, 50]
+            ];
+
+            const stmt = this.db.prepare(`
+                INSERT OR IGNORE INTO products (code, name, type, purchase_price, selling_price, stock)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `);
+
+            sampleProducts.forEach(product => {
+                stmt.run(product, (err) => {
+                    if (err) {
+                        console.error('Error inserting sample product:', err);
+                    }
+                });
             });
 
-            // Insert sample expenses if empty
-            this.db.get("SELECT COUNT(*) as count FROM fotocopy_expenses", (err, row) => {
-                if (!err && row.count === 0) {
-                    this.insertSampleExpenses();
-                }
-            });
+            stmt.finalize();
         });
-    }
-
-    insertSampleData() {
-        const sampleProducts = [
-            ['P001', 'Pulpen Biru Standard', 'atk', 2000, 3000, 50],
-            ['P002', 'Pensil 2B Faber Castell', 'atk', 3000, 4500, 30],
-            ['P003', 'Penggaris 30cm', 'atk', 5000, 7000, 25],
-            ['P004', 'Kertas A4 70gsm', 'atk', 45000, 55000, 10],
-            ['P005', 'Spidol Hitam', 'atk', 8000, 12000, 20],
-            ['M001', 'Air Mineral 600ml', 'makmin', 2000, 3000, 100],
-            ['M002', 'Teh Botol Sosro', 'makmin', 4000, 6000, 50],
-            ['M003', 'Biskuit Marie', 'makmin', 8000, 12000, 30],
-            ['M004', 'Kopi Sachet', 'makmin', 1500, 2500, 80],
-            ['M005', 'Mie Instan', 'makmin', 3000, 4500, 40]
-        ];
-
-        const stmt = this.db.prepare(`
-            INSERT INTO products (code, name, type, purchase_price, selling_price, stock)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `);
-
-        sampleProducts.forEach(product => {
-            stmt.run(product);
-        });
-
-        stmt.finalize();
-    }
-
-    insertSampleExpenses() {
-        const sampleExpenses = [
-            ['Pembelian tinta printer', 50000],
-            ['Biaya listrik bulan ini', 20000],
-            ['Kertas fotokopi 100 rim', 100000]
-        ];
-
-        const stmt = this.db.prepare(`
-            INSERT INTO fotocopy_expenses (description, amount)
-            VALUES (?, ?)
-        `);
-
-        sampleExpenses.forEach(expense => {
-            stmt.run(expense);
-        });
-
-        stmt.finalize();
     }
 
     getProducts(type = null) {
         return new Promise((resolve, reject) => {
-            let query = "SELECT * FROM products";
+            let query = 'SELECT * FROM products';
             let params = [];
-            
+
             if (type) {
-                query += " WHERE type = ?";
+                query += ' WHERE type = ?';
                 params.push(type);
             }
-            
-            query += " ORDER BY name";
+
+            query += ' ORDER BY name';
 
             this.db.all(query, params, (err, rows) => {
                 if (err) {
@@ -133,11 +96,10 @@ class Database {
     addProduct(product) {
         return new Promise((resolve, reject) => {
             const { code, name, type, purchase_price, selling_price, stock } = product;
-            
             this.db.run(`
                 INSERT INTO products (code, name, type, purchase_price, selling_price, stock)
                 VALUES (?, ?, ?, ?, ?, ?)
-            `, [code, name, type, purchase_price, selling_price, stock || 0], function(err) {
+            `, [code, name, type, purchase_price, selling_price, stock], function(err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -149,13 +111,12 @@ class Database {
 
     updateProduct(id, product) {
         return new Promise((resolve, reject) => {
-            const { code, name, purchase_price, selling_price, stock } = product;
-            
+            const { code, name, type, purchase_price, selling_price, stock } = product;
             this.db.run(`
-                UPDATE products 
-                SET code = ?, name = ?, purchase_price = ?, selling_price = ?, stock = ?, updated_at = CURRENT_TIMESTAMP
+                UPDATE products
+                SET code = ?, name = ?, type = ?, purchase_price = ?, selling_price = ?, stock = ?
                 WHERE id = ?
-            `, [code, name, purchase_price, selling_price, stock, id], function(err) {
+            `, [code, name, type, purchase_price, selling_price, stock, id], function(err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -167,23 +128,7 @@ class Database {
 
     deleteProduct(id) {
         return new Promise((resolve, reject) => {
-            this.db.run("DELETE FROM products WHERE id = ?", [id], function(err) {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve({ changes: this.changes });
-                }
-            });
-        });
-    }
-
-    updateStock(productId, delta) {
-        return new Promise((resolve, reject) => {
-            this.db.run(`
-                UPDATE products 
-                SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE id = ?
-            `, [delta, productId], function(err) {
+            this.db.run('DELETE FROM products WHERE id = ?', [id], function(err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -196,11 +141,11 @@ class Database {
     addSale(sale) {
         return new Promise((resolve, reject) => {
             const { type, payment_method, total_amount, items } = sale;
-            
+            const itemsJson = JSON.stringify(items);
             this.db.run(`
-                INSERT INTO sales (type, payment_method, total_amount, items)
-                VALUES (?, ?, ?, ?)
-            `, [type, payment_method, total_amount, JSON.stringify(items)], function(err) {
+                INSERT INTO sales (type, payment_method, total_amount, items, created_at)
+                VALUES (?, ?, ?, ?, datetime('now', 'localtime'))
+            `, [type, payment_method, total_amount, itemsJson], function(err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -212,19 +157,9 @@ class Database {
 
     getSales(filters = {}) {
         return new Promise((resolve, reject) => {
-            let query = "SELECT * FROM sales";
+            let query = 'SELECT * FROM sales';
             let params = [];
             let conditions = [];
-
-            if (filters.type) {
-                conditions.push("type = ?");
-                params.push(filters.type);
-            }
-
-            if (filters.payment_method) {
-                conditions.push("payment_method = ?");
-                params.push(filters.payment_method);
-            }
 
             if (filters.date_from) {
                 conditions.push("date(created_at) >= ?");
@@ -234,6 +169,16 @@ class Database {
             if (filters.date_to) {
                 conditions.push("date(created_at) <= ?");
                 params.push(filters.date_to);
+            }
+
+            if (filters.type) {
+                conditions.push("type = ?");
+                params.push(filters.type);
+            }
+
+            if (filters.payment_method) {
+                conditions.push("payment_method = ?");
+                params.push(filters.payment_method);
             }
 
             if (conditions.length > 0) {
@@ -246,14 +191,11 @@ class Database {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(rows.map(row => ({
+                    const sales = rows.map(row => ({
                         ...row,
-                        items: JSON.parse(row.items),
-                        created_at: new Date(row.created_at).toLocaleString('id-ID', { 
-                            year: 'numeric', month: '2-digit', day: '2-digit', 
-                            hour: '2-digit', minute: '2-digit', second: '2-digit' 
-                        })
-                    })));
+                        items: JSON.parse(row.items)
+                    }));
+                    resolve(sales);
                 }
             });
         });
@@ -262,26 +204,13 @@ class Database {
     getSalesSummary(filters = {}) {
         return new Promise((resolve, reject) => {
             let query = `
-                SELECT 
-                    type,
-                    payment_method,
-                    COUNT(*) as total_transactions,
-                    SUM(total_amount) as total_revenue,
-                    AVG(total_amount) as avg_transaction
+                SELECT type,
+                       COUNT(*) as total_transactions,
+                       SUM(total_amount) as total_revenue
                 FROM sales
             `;
             let params = [];
             let conditions = [];
-
-            if (filters.type) {
-                conditions.push("type = ?");
-                params.push(filters.type);
-            }
-
-            if (filters.payment_method) {
-                conditions.push("payment_method = ?");
-                params.push(filters.payment_method);
-            }
 
             if (filters.date_from) {
                 conditions.push("date(created_at) >= ?");
@@ -293,17 +222,38 @@ class Database {
                 params.push(filters.date_to);
             }
 
+            if (filters.type) {
+                conditions.push("type = ?");
+                params.push(filters.type);
+            }
+
             if (conditions.length > 0) {
                 query += " WHERE " + conditions.join(" AND ");
             }
 
-            query += " GROUP BY type, payment_method";
+            query += " GROUP BY type";
 
             this.db.all(query, params, (err, rows) => {
                 if (err) {
                     reject(err);
                 } else {
                     resolve(rows);
+                }
+            });
+        });
+    }
+
+    updateStock(productId, delta) {
+        return new Promise((resolve, reject) => {
+            this.db.run(`
+                UPDATE products
+                SET stock = stock + ?
+                WHERE id = ?
+            `, [delta, productId], function(err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve({ changes: this.changes });
                 }
             });
         });
@@ -335,13 +285,7 @@ class Database {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(rows.map(row => ({
-                        ...row,
-                        created_at: new Date(row.created_at).toLocaleString('id-ID', { 
-                            year: 'numeric', month: '2-digit', day: '2-digit', 
-                            hour: '2-digit', minute: '2-digit' 
-                        })
-                    })));
+                    resolve(rows);
                 }
             });
         });
@@ -349,12 +293,7 @@ class Database {
 
     getExpensesSummary(filters = {}) {
         return new Promise((resolve, reject) => {
-            let query = `
-                SELECT 
-                    COUNT(*) as total_expenses,
-                    SUM(amount) as total_amount
-                FROM fotocopy_expenses
-            `;
+            let query = "SELECT SUM(amount) as total_amount FROM fotocopy_expenses";
             let params = [];
             let conditions = [];
 
@@ -376,7 +315,7 @@ class Database {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(row || { total_expenses: 0, total_amount: 0 });
+                    resolve(row);
                 }
             });
         });
@@ -384,15 +323,20 @@ class Database {
 
     addExpense(expense) {
         return new Promise((resolve, reject) => {
-            const { description, amount } = expense;
+            const { description, amount, created_at } = expense;
+            const formattedDate = created_at ? `${created_at} 00:00:00` : new Date().toISOString();
+            
+            console.log('Menyimpan ke database:', { description, amount, formattedDate });
             
             this.db.run(`
-                INSERT INTO fotocopy_expenses (description, amount)
-                VALUES (?, ?)
-            `, [description, amount], function(err) {
+                INSERT INTO fotocopy_expenses (description, amount, created_at)
+                VALUES (?, ?, ?)
+            `, [description, amount, formattedDate], function(err) {
                 if (err) {
+                    console.error('Error saat menyimpan pengeluaran:', err);
                     reject(err);
                 } else {
+                    console.log('Pengeluaran tersimpan, ID:', this.lastID);
                     resolve({ id: this.lastID });
                 }
             });
@@ -401,13 +345,13 @@ class Database {
 
     updateExpense(id, expense) {
         return new Promise((resolve, reject) => {
-            const { description, amount } = expense;
-            
+            const { description, amount, created_at } = expense;
+            const formattedDate = created_at ? `${created_at} 00:00:00` : new Date().toISOString();
             this.db.run(`
-                UPDATE fotocopy_expenses 
-                SET description = ?, amount = ?, created_at = CURRENT_TIMESTAMP
+                UPDATE fotocopy_expenses
+                SET description = ?, amount = ?, created_at = ?
                 WHERE id = ?
-            `, [description, amount, id], function(err) {
+            `, [description, amount, formattedDate, id], function(err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -419,7 +363,7 @@ class Database {
 
     deleteExpense(id) {
         return new Promise((resolve, reject) => {
-            this.db.run("DELETE FROM fotocopy_expenses WHERE id = ?", [id], function(err) {
+            this.db.run('DELETE FROM fotocopy_expenses WHERE id = ?', [id], function(err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -431,7 +375,7 @@ class Database {
 
     deleteSale(id) {
         return new Promise((resolve, reject) => {
-            this.db.run("DELETE FROM sales WHERE id = ?", [id], function(err) {
+            this.db.run('DELETE FROM sales WHERE id = ?', [id], function(err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -442,7 +386,13 @@ class Database {
     }
 
     close() {
-        this.db.close();
+        this.db.close((err) => {
+            if (err) {
+                console.error('Error closing database:', err);
+            } else {
+                console.log('Database connection closed');
+            }
+        });
     }
 }
 
