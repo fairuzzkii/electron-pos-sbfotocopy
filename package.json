@@ -26,11 +26,21 @@
     },
     "files": [
       "main.js",
-      "renderer.js",
+      "renderer.js", 
       "database.js",
       "index.html",
       "styles.css",
+      "assets/**/*",
       "node_modules/**/*"
-    ]
+    ],
+    "win": {
+      "icon": "assets/logosb.png"
+    },
+    "mac": {
+      "icon": "assets/logosb.png" 
+    },
+    "linux": {
+      "icon": "assets/logosb.png"
+    }
   }
 }

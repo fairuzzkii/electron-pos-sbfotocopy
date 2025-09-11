@@ -15,7 +15,7 @@ function createWindow() {
             nodeIntegration: true,
             contextIsolation: false
         },
-        icon: path.join(__dirname, 'assets', 'icon.png'),
+        icon: path.join(__dirname, 'assets', 'logosb.png'), // Ubah dari icon.png ke logosb.png
         titleBarStyle: 'default',
         show: false
     });
