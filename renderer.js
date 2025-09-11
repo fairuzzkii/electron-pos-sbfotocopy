@@ -595,7 +595,6 @@ function showEditProductModal(product) {
     
     document.getElementById('product-id').value = product.id;
     document.getElementById('product-type').value = product.type;
-    document.getElementById('product-code').value = product.code;
     document.getElementById('product-name').value = product.name;
     document.getElementById('product-purchase-price').value = product.purchase_price;
     document.getElementById('product-selling-price').value = product.selling_price;
@@ -606,7 +605,6 @@ function showEditProductModal(product) {
 
 async function saveProduct() {
     const productData = {
-        code: document.getElementById('product-code').value.trim(),
         name: document.getElementById('product-name').value.trim(),
         type: document.getElementById('product-type').value,
         purchase_price: parseFloat(document.getElementById('product-purchase-price').value) || 0,
@@ -614,7 +612,7 @@ async function saveProduct() {
         stock: parseInt(document.getElementById('product-stock').value) || 0
     };
     
-    if (!productData.code || !productData.name || productData.selling_price <= 0) {
+    if (!productData.name || productData.selling_price <= 0) {
         showNotification('Mohon lengkapi semua field', 'warning');
         return;
     }
