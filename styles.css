@@ -639,6 +639,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    pointer-events: auto; /* Pastikan modal dapat diinteraksi */
 }
 
 .modal-content {
@@ -649,6 +650,7 @@ body {
     width: 90%;
     max-height: 90%;
     overflow-y: auto;
+    pointer-events: auto; /* Pastikan konten modal dapat diinteraksi */
 }
 
 .modal-header {
@@ -698,6 +700,8 @@ body {
 
 .form-group input,
 .form-group select {
+    pointer-events: auto !important; /* Paksa input dapat diinteraksi */
+    user-select: auto; /* Pastikan teks dapat dipilih */
     width: 100%;
     padding: 0.5rem;
     border: 1px solid var(--border-color);
