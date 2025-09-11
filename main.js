@@ -114,3 +114,7 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (error) => {
     console.error('Unhandled Rejection:', error);
 });
+
+ipcMain.handle('force-refresh-ui', () => {
+    mainWindow.webContents.reloadIgnoringCache();
+});

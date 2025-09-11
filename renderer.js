@@ -174,12 +174,14 @@ function searchProducts(type) {
 }
 
 function searchProductsTable() {
+    console.log('Mencari di tabel produk');
     const searchTerm = document.getElementById('product-search').value.toLowerCase();
     const currentProducts = products[currentProductTab] || [];
     const filtered = currentProducts.filter(product =>
         product.name.toLowerCase().includes(searchTerm) ||
         product.code.toLowerCase().includes(searchTerm)
     );
+    console.log(`Produk ditemukan di tabel: ${filtered.length}`);
     renderProductsTable(filtered);
 }
 
@@ -586,6 +588,10 @@ function showAddProductModal() {
     document.getElementById('product-form').reset();
     document.getElementById('product-type').value = currentProductTab;
     showModal('product-modal');
+    // Kembalikan fokus ke input pertama
+    setTimeout(() => {
+        document.getElementById('product-name').focus();
+    }, 100);
 }
 
 function showEditProductModal(product) {
@@ -601,6 +607,10 @@ function showEditProductModal(product) {
     document.getElementById('product-stock').value = product.stock;
     
     showModal('product-modal');
+    // Kembalikan fokus ke input pertama
+    setTimeout(() => {
+        document.getElementById('product-name').focus();
+    }, 100);
 }
 
 async function saveProduct() {
@@ -641,12 +651,15 @@ async function deleteProduct(id) {
     
     try {
         await ipcRenderer.invoke('db-delete-product', id);
+        showNotification('Produk berhasil dihapus', 'success');
         await loadProducts();
         loadProductsTable();
-        showNotification('Produk berhasil dihapus', 'success');
+        populateStockSelect();
+        // Paksa refresh UI jika diperlukan
+        await ipcRenderer.invoke('force-refresh-ui');
     } catch (error) {
         console.error('Error deleting product:', error);
-        showNotification('Error menghapus produk', 'error');
+        showNotification('Error menghapus produk: ' + error.message, 'error');
     }
 }
 
@@ -1176,7 +1189,18 @@ function updateExpensesData() {
 }
 
 function showModal(modalId) {
-    document.getElementById(modalId).classList.add('show');
+    try {
+        const modal = document.getElementById(modalId);
+        if (!modal) {
+            throw new Error(`Modal ${modalId} tidak ditemukan`);
+        }
+        modal.classList.add('show');
+        // Pastikan modal fokus
+        modal.focus();
+    } catch (error) {
+        console.error('Error menampilkan modal:', error);
+        showNotification('Error menampilkan modal: ' + error.message, 'error');
+    }
 }
 
 function closeModal(modalId) {
