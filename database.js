@@ -137,7 +137,6 @@ class Database {
         return new Promise(async (resolve, reject) => {
             const { code, name, type, purchase_price, selling_price, stock } = product;
             let newCode = code;
-            // Jika tipe berubah, generate kode baru
             this.db.get('SELECT type FROM products WHERE id = ?', [id], async (err, row) => {
                 if (err) {
                     reject(err);

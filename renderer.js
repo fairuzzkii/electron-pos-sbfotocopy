@@ -12,6 +12,7 @@ let editingProductId = null;
 let editingExpenseId = null;
 let filteredSales = [];
 let filteredExpenses = [];
+let confirmResolve = null; // Untuk menangani Promise di confirm modal
 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadProducts();
@@ -31,6 +32,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     allProducts = [...products.atk, ...products.makmin];
     populateStockSelect();
 });
+
+// Fungsi untuk menangani confirm modal
+function showConfirmModal(message, onConfirm) {
+    return new Promise((resolve) => {
+        confirmResolve = resolve;
+        document.getElementById('confirm-message').textContent = message;
+        document.getElementById('confirm-yes-btn').onclick = () => {
+            onConfirm();
+            closeConfirmModal();
+        };
+        showModal('confirm-modal');
+    });
+}
+
+function closeConfirmModal() {
+    closeModal('confirm-modal');
+    document.getElementById('confirm-yes-btn').onclick = null; // Reset listener
+    if (confirmResolve) {
+        confirmResolve();
+        confirmResolve = null;
+    }
+}
 
 function toggleTheme() {
     const currentTheme = document.body.className.includes('dark') ? 'dark' : 'light';
@@ -556,6 +579,10 @@ function showAddStockModal() {
     document.getElementById('stock-add-amount').value = '';
     populateStockSelect();
     showModal('add-stock-modal');
+    // Kembalikan fokus ke input pencarian
+    setTimeout(() => {
+        document.getElementById('stock-search').focus();
+    }, 100);
 }
 
 async function addStock() {
@@ -639,7 +666,10 @@ async function saveProduct() {
         await loadProducts();
         loadProductsTable();
         closeModal('product-modal');
-        
+        // Kembalikan fokus ke kolom pencarian
+        setTimeout(() => {
+            document.getElementById('product-search').focus();
+        }, 100);
     } catch (error) {
         console.error('Error saving product:', error);
         showNotification('Error menyimpan produk', 'error');
@@ -647,20 +677,26 @@ async function saveProduct() {
 }
 
 async function deleteProduct(id) {
-    if (!confirm('Yakin ingin menghapus produk ini?')) return;
-    
-    try {
-        await ipcRenderer.invoke('db-delete-product', id);
-        showNotification('Produk berhasil dihapus', 'success');
-        await loadProducts();
-        loadProductsTable();
-        populateStockSelect();
-        // Paksa refresh UI jika diperlukan
-        await ipcRenderer.invoke('force-refresh-ui');
-    } catch (error) {
-        console.error('Error deleting product:', error);
-        showNotification('Error menghapus produk: ' + error.message, 'error');
-    }
+    await showConfirmModal('Yakin ingin menghapus produk ini?', async () => {
+        try {
+            await ipcRenderer.invoke('db-delete-product', id);
+            showNotification('Produk berhasil dihapus', 'success');
+            await loadProducts();
+            loadProductsTable();
+            populateStockSelect();
+            // Paksa reflow UI tanpa reload penuh
+            setTimeout(() => {
+                document.getElementById('product-search').focus();
+                document.body.style.display = 'none';
+                document.body.offsetHeight; // Trigger reflow
+                document.body.style.display = 'block';
+                console.log('Fokus dikembalikan ke product-search');
+            }, 100);
+        } catch (error) {
+            console.error('Error deleting product:', error);
+            showNotification('Error menghapus produk: ' + error.message, 'error');
+        }
+    });
 }
 
 async function loadHistoryData() {
@@ -797,6 +833,7 @@ async function loadSummaryData(filters, allSales) {
         
     } catch (error) {
         console.error('Error loading summary:', error);
+        showNotification('Error loading summary data', 'error');
     }
 }
 
@@ -903,7 +940,7 @@ function loadSalesTable(itemsOrSales) {
             row.innerHTML = `
                 <td>${item.saleDate}</td>
                 <td>${typeLabel}</td>
-                <td>${item.name}</td>
+                <td>${item.name}${item.note ? `<br><small>${item.note}</small>` : ''}</td>
                 <td>${item.paymentMethod.toUpperCase()}</td>
                 <td>Rp ${formatNumber(item.price)}</td>
                 <td>${item.quantity}</td>
@@ -920,7 +957,7 @@ function loadSalesTable(itemsOrSales) {
                 row.innerHTML = `
                     <td>${sale.created_at}</td>
                     <td>${typeLabel}</td>
-                    <td>${item.name}</td>
+                    <td>${item.name}${item.note ? `<br><small>${item.note}</small>` : ''}</td>
                     <td>${sale.payment_method.toUpperCase()}</td>
                     <td>Rp ${formatNumber(item.price)}</td>
                     <td>${item.quantity}</td>
@@ -961,55 +998,36 @@ function updateHistoryData() {
     loadHistoryData();
 }
 
-async function deleteSale(id) {
-    if (!confirm('Yakin ingin menghapus penjualan ini?')) return;
-    
-    try {
-        await ipcRenderer.invoke('db-delete-sale', id);
-        showNotification('Penjualan berhasil dihapus', 'success');
-        loadHistoryData();
-    } catch (error) {
-        console.error('Error deleting sale:', error);
-        showNotification('Error menghapus penjualan', 'error');
-    }
-}
-
 async function loadExpensesData() {
     const filters = getExpensesFilters();
-    
-    console.log('Filter yang digunakan:', filters);
-    
     try {
         const expenses = await ipcRenderer.invoke('db-get-expenses', filters);
-        console.log('Data pengeluaran yang diambil:', expenses);
-        
         const expenseSummary = await ipcRenderer.invoke('db-get-expenses-summary', filters);
-        const salesFilters = { ...filters, type: 'fotocopy' };
-        const sales = await ipcRenderer.invoke('db-get-sales', salesFilters);
+        const salesSummary = await ipcRenderer.invoke('db-get-sales-summary', filters);
+        
         let totalFotocopy = 0;
         let totalPrintColor = 0;
         let totalOmset = 0;
-
-        sales.forEach(sale => {
-            sale.items.forEach(item => {
-                if (item.type === 'fotocopy') {
-                    totalFotocopy += item.total;
-                } else if (item.type === 'print-color') {
-                    totalPrintColor += item.total;
-                }
-            });
+        let totalExpenses = expenseSummary.total_amount || 0;
+        
+        salesSummary.forEach(summary => {
+            if (summary.type === 'fotocopy') {
+                totalFotocopy = summary.total_revenue || 0;
+            } else if (summary.type === 'print-color') {
+                totalPrintColor = summary.total_revenue || 0;
+            }
         });
-
+        
         totalOmset = totalFotocopy + totalPrintColor;
-        const totalLaba = totalOmset - (expenseSummary.total_amount || 0);
-
+        const totalLaba = totalOmset - totalExpenses;
+        
         const cards = document.querySelectorAll('#expenses-summary-cards .summary-card .amount');
         cards[0].textContent = `Rp ${formatNumber(totalOmset)}`;
         cards[1].textContent = `Rp ${formatNumber(totalFotocopy)}`;
         cards[2].textContent = `Rp ${formatNumber(totalPrintColor)}`;
-        cards[3].textContent = `Rp ${formatNumber(expenseSummary.total_amount || 0)}`;
+        cards[3].textContent = `Rp ${formatNumber(totalExpenses)}`;
         cards[4].textContent = `Rp ${formatNumber(totalLaba)}`;
-
+        
         filteredExpenses = expenses;
         searchExpenses();
         
@@ -1019,8 +1037,39 @@ async function loadExpensesData() {
     }
 }
 
+function searchExpenses() {
+    const searchTerm = document.getElementById('expenses-search').value.toLowerCase();
+    const filtered = filteredExpenses.filter(expense =>
+        expense.description.toLowerCase().includes(searchTerm) ||
+        expense.created_at.toLowerCase().includes(searchTerm)
+    );
+    
+    const tbody = document.querySelector('#expenses-table tbody');
+    tbody.innerHTML = '';
+    
+    filtered.forEach(expense => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${expense.created_at.split(' ')[0]}</td>
+            <td>${expense.description}</td>
+            <td>Rp ${formatNumber(expense.amount)}</td>
+            <td>
+                <div class="action-buttons">
+                    <button class="btn-primary btn-sm" onclick="showEditExpenseModal(${expense.id})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-danger btn-sm" onclick="deleteExpense(${expense.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
 function getExpensesFilters() {
-    const period = document.getElementById('expenses-period-filter').value || 'month';
+    const period = document.getElementById('expenses-period-filter').value;
     const today = new Date();
     let dateFrom, dateTo;
     
@@ -1043,66 +1092,41 @@ function getExpensesFilters() {
             dateTo = document.getElementById('expenses-date-to').value;
             break;
         default:
-            dateFrom = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-            dateTo = today.toISOString().split('T')[0];
+            dateFrom = dateTo = today.toISOString().split('T')[0];
     }
     
     return { date_from: dateFrom, date_to: dateTo };
 }
 
-function searchExpenses() {
-    const searchTerm = document.getElementById('expenses-search').value.toLowerCase();
-    let expensesToShow = filteredExpenses;
-    
-    if (searchTerm) {
-        expensesToShow = filteredExpenses.filter(expense =>
-            expense.description.toLowerCase().includes(searchTerm) ||
-            expense.created_at.toLowerCase().includes(searchTerm)
-        );
-    }
-    
-    loadExpensesTable(expensesToShow);
-}
-
-function loadExpensesTable(expenses) {
-    const tbody = document.querySelector('#expenses-table tbody');
-    tbody.innerHTML = '';
-    
-    if (expenses.length === 0) {
-        showNotification('Tidak ada pengeluaran ditemukan untuk periode ini', 'info');
-    }
-    
-    expenses.forEach(expense => {
-        const formattedDate = new Date(expense.created_at).toLocaleDateString('id-ID', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        });
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${formattedDate}</td>
-            <td>${expense.description}</td>
-            <td>Rp ${formatNumber(expense.amount)}</td>
-            <td>
-                <div class="action-buttons">
-                    <button class="btn-primary btn-sm" onclick="showEditExpenseModal(${JSON.stringify(expense).replace(/"/g, '&quot;')})">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn-danger btn-sm" onclick="deleteExpense(${expense.id})">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </td>
-        `;
-        tbody.appendChild(row);
-    });
-}
-
 function showAddExpenseModal() {
-    document.getElementById('expense-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('expense-date').valueAsDate = new Date();
     document.getElementById('expense-description').value = '';
     document.getElementById('expense-amount').value = '';
     showModal('add-expense-modal');
+    // Kembalikan fokus ke input pertama
+    setTimeout(() => {
+        document.getElementById('expense-description').focus();
+    }, 100);
+}
+
+function showEditExpenseModal(id) {
+    const expense = filteredExpenses.find(exp => exp.id === id);
+    if (!expense) {
+        showNotification('Pengeluaran tidak ditemukan', 'error');
+        return;
+    }
+    
+    editingExpenseId = id;
+    document.getElementById('edit-expense-id').value = id;
+    document.getElementById('edit-expense-date').value = expense.created_at.split(' ')[0];
+    document.getElementById('edit-expense-description').value = expense.description;
+    document.getElementById('edit-expense-amount').value = expense.amount;
+    
+    showModal('edit-expense-modal');
+    // Kembalikan fokus ke input pertama
+    setTimeout(() => {
+        document.getElementById('edit-expense-description').focus();
+    }, 100);
 }
 
 async function saveExpense() {
@@ -1112,10 +1136,8 @@ async function saveExpense() {
         created_at: document.getElementById('expense-date').value
     };
     
-    console.log('Menyimpan pengeluaran:', expenseData);
-    
-    if (!expenseData.description || expenseData.amount <= 0 || !expenseData.created_at) {
-        showNotification('Mohon lengkapi deskripsi, biaya, dan tanggal', 'warning');
+    if (!expenseData.description || expenseData.amount <= 0) {
+        showNotification('Mohon lengkapi semua field', 'warning');
         return;
     }
     
@@ -1123,20 +1145,11 @@ async function saveExpense() {
         await ipcRenderer.invoke('db-add-expense', expenseData);
         showNotification('Pengeluaran berhasil ditambahkan', 'success');
         closeModal('add-expense-modal');
-        loadExpensesData();
+        await loadExpensesData();
     } catch (error) {
         console.error('Error saving expense:', error);
-        showNotification('Error menambahkan pengeluaran', 'error');
+        showNotification('Error menambah pengeluaran', 'error');
     }
-}
-
-function showEditExpenseModal(expense) {
-    editingExpenseId = expense.id;
-    document.getElementById('edit-expense-id').value = expense.id;
-    document.getElementById('edit-expense-date').value = expense.created_at.split(' ')[0];
-    document.getElementById('edit-expense-description').value = expense.description;
-    document.getElementById('edit-expense-amount').value = expense.amount;
-    showModal('edit-expense-modal');
 }
 
 async function updateExpense() {
@@ -1146,8 +1159,8 @@ async function updateExpense() {
         created_at: document.getElementById('edit-expense-date').value
     };
     
-    if (!expenseData.description || expenseData.amount <= 0 || !expenseData.created_at) {
-        showNotification('Mohon lengkapi deskripsi, biaya, dan tanggal', 'warning');
+    if (!expenseData.description || expenseData.amount <= 0) {
+        showNotification('Mohon lengkapi semua field', 'warning');
         return;
     }
     
@@ -1155,7 +1168,7 @@ async function updateExpense() {
         await ipcRenderer.invoke('db-update-expense', editingExpenseId, expenseData);
         showNotification('Pengeluaran berhasil diupdate', 'success');
         closeModal('edit-expense-modal');
-        loadExpensesData();
+        await loadExpensesData();
     } catch (error) {
         console.error('Error updating expense:', error);
         showNotification('Error mengupdate pengeluaran', 'error');
@@ -1163,58 +1176,72 @@ async function updateExpense() {
 }
 
 async function deleteExpense(id) {
-    if (!confirm('Yakin ingin menghapus pengeluaran ini?')) return;
-    
-    try {
-        await ipcRenderer.invoke('db-delete-expense', id);
-        showNotification('Pengeluaran berhasil dihapus', 'success');
-        loadExpensesData();
-    } catch (error) {
-        console.error('Error deleting expense:', error);
-        showNotification('Error menghapus pengeluaran', 'error');
-    }
+    await showConfirmModal('Yakin ingin menghapus pengeluaran ini?', async () => {
+        try {
+            await ipcRenderer.invoke('db-delete-expense', id);
+            showNotification('Pengeluaran berhasil dihapus', 'success');
+            await loadExpensesData();
+            // Paksa reflow UI tanpa reload penuh
+            setTimeout(() => {
+                document.getElementById('expenses-search').focus();
+                document.body.style.display = 'none';
+                document.body.offsetHeight; // Trigger reflow
+                document.body.style.display = 'block';
+                console.log('Fokus dikembalikan ke expenses-search');
+            }, 100);
+        } catch (error) {
+            console.error('Error deleting expense:', error);
+            showNotification('Error menghapus pengeluaran', 'error');
+        }
+    });
 }
 
-function updateExpensesData() {
-    const period = document.getElementById('expenses-period-filter').value;
-    const customRange = document.getElementById('expenses-custom-date-range');
-    
-    if (period === 'custom') {
-        customRange.style.display = 'flex';
-    } else {
-        customRange.style.display = 'none';
-    }
-    
-    loadExpensesData();
+async function deleteSale(id) {
+    await showConfirmModal('Yakin ingin menghapus penjualan ini?', async () => {
+        try {
+            await ipcRenderer.invoke('db-delete-sale', id);
+            showNotification('Penjualan berhasil dihapus', 'success');
+            await loadHistoryData();
+            // Paksa reflow UI tanpa reload penuh
+            setTimeout(() => {
+                document.getElementById('history-search').focus();
+                document.body.style.display = 'none';
+                document.body.offsetHeight; // Trigger reflow
+                document.body.style.display = 'block';
+                console.log('Fokus dikembalikan ke history-search');
+            }, 100);
+        } catch (error) {
+            console.error('Error deleting sale:', error);
+            showNotification('Error menghapus penjualan', 'error');
+        }
+    });
 }
 
 function showModal(modalId) {
-    try {
-        const modal = document.getElementById(modalId);
-        if (!modal) {
-            throw new Error(`Modal ${modalId} tidak ditemukan`);
-        }
-        modal.classList.add('show');
-        // Pastikan modal fokus
-        modal.focus();
-    } catch (error) {
-        console.error('Error menampilkan modal:', error);
-        showNotification('Error menampilkan modal: ' + error.message, 'error');
-    }
+    document.getElementById(modalId).classList.add('show');
+    // Pastikan modal dapat diinteraksi
+    document.getElementById(modalId).style.pointerEvents = 'auto';
 }
 
 function closeModal(modalId) {
     document.getElementById(modalId).classList.remove('show');
-}
-
-function formatNumber(number) {
-    return number.toLocaleString('id-ID', { minimumFractionDigits: 0 });
+    // Kembalikan fokus ke elemen terkait setelah menutup modal
+    setTimeout(() => {
+        const focusElement = modalId === 'product-modal' ? 'product-search' :
+                            modalId === 'add-stock-modal' ? 'product-search' :
+                            modalId === 'add-expense-modal' ? 'expenses-search' :
+                            modalId === 'edit-expense-modal' ? 'expenses-search' :
+                            modalId === 'payment-modal' ? 'atk-search' : 'product-search';
+        document.getElementById(focusElement).focus();
+        console.log(`Fokus dikembalikan ke ${focusElement} setelah menutup modal`);
+    }, 100);
 }
 
 function showNotification(message, type) {
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
     notification.textContent = message;
+    
     document.body.appendChild(notification);
     
     setTimeout(() => {
@@ -1226,4 +1253,8 @@ function showNotification(message, type) {
             }, 300);
         }, 3000);
     }, 100);
+}
+
+function formatNumber(num) {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }

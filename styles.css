@@ -187,6 +187,12 @@ body {
     background-color: var(--bg-secondary);
     color: var(--text-primary);
     margin-bottom: 1rem;
+    pointer-events: auto;
+    user-select: auto;
+}
+
+.cart input[type="text"]:focus {
+    outline: 2px solid var(--accent-primary);
 }
 
 .product-list {
@@ -261,6 +267,13 @@ body {
     border-radius: 0.25rem;
     background-color: var(--bg-secondary);
     color: var(--text-primary);
+    pointer-events: auto;
+    user-select: auto;
+}
+
+.fotocopy-form select:focus,
+.fotocopy-form input:focus {
+    outline: 2px solid var(--accent-primary);
 }
 
 /* Cart Items */
@@ -315,16 +328,15 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    pointer-events: auto;
 }
 
-.qty-input {
-    width: 50px;
-    text-align: center;
-    padding: 0.25rem;
-    border: 1px solid var(--border-color);
-    border-radius: 0.25rem;
-    background-color: var(--bg-secondary);
-    color: var(--text-primary);
+.qty-btn:hover {
+    background-color: #0056b3;
+}
+
+.dark-theme .qty-btn:hover {
+    background-color: #0a58ca;
 }
 
 .remove-btn {
@@ -338,6 +350,27 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    pointer-events: auto;
+}
+
+.remove-btn:hover {
+    background-color: #c82333;
+}
+
+.qty-input {
+    width: 50px;
+    text-align: center;
+    padding: 0.25rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    pointer-events: auto;
+    user-select: auto;
+}
+
+.qty-input:focus {
+    outline: 2px solid var(--accent-primary);
 }
 
 .cart-total {
@@ -388,6 +421,7 @@ body {
     align-items: center;
     gap: 0.5rem;
     text-decoration: none;
+    pointer-events: auto;
 }
 
 .btn-primary {
@@ -416,6 +450,7 @@ body {
 }
 
 .btn-primary:hover { background-color: #0056b3; }
+.dark-theme .btn-primary:hover { background-color: #0a58ca; }
 .btn-secondary:hover { background-color: #545b62; }
 .btn-success:hover { background-color: #1e7e34; }
 .btn-danger:hover { background-color: #c82333; }
@@ -487,6 +522,12 @@ body {
     border-radius: 0.25rem;
     background-color: var(--bg-secondary);
     color: var(--text-primary);
+    pointer-events: auto;
+    user-select: auto;
+}
+
+.management-header input:focus {
+    outline: 2px solid var(--accent-primary);
 }
 
 /* Tables */
@@ -581,6 +622,13 @@ body {
     border-radius: 0.25rem;
     background-color: var(--bg-secondary);
     color: var(--text-primary);
+    pointer-events: auto;
+    user-select: auto;
+}
+
+.filter-group select:focus,
+.filter-group input:focus {
+    outline: 2px solid var(--accent-primary);
 }
 
 .filter-section .filter-group input {
@@ -639,7 +687,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    pointer-events: auto; /* Pastikan modal dapat diinteraksi */
+    pointer-events: auto;
 }
 
 .modal-content {
@@ -650,7 +698,7 @@ body {
     width: 90%;
     max-height: 90%;
     overflow-y: auto;
-    pointer-events: auto; /* Pastikan konten modal dapat diinteraksi */
+    pointer-events: auto;
 }
 
 .modal-header {
@@ -685,6 +733,7 @@ body {
 
 .modal-body {
     padding: 1.5rem;
+    color: var(--text-primary);
 }
 
 .form-group {
@@ -700,14 +749,19 @@ body {
 
 .form-group input,
 .form-group select {
-    pointer-events: auto !important; /* Paksa input dapat diinteraksi */
-    user-select: auto; /* Pastikan teks dapat dipilih */
+    pointer-events: auto !important;
+    user-select: auto;
     width: 100%;
     padding: 0.5rem;
     border: 1px solid var(--border-color);
     border-radius: 0.25rem;
     background-color: var(--bg-secondary);
     color: var(--text-primary);
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: 2px solid var(--accent-primary);
 }
 
 .modal-footer {
@@ -718,15 +772,29 @@ body {
     border-top: 1px solid var(--border-color);
 }
 
+/* Confirm Modal */
+#confirm-modal .modal-content {
+    max-width: 400px;
+}
+
+#confirm-modal .modal-body {
+    font-size: 1.1rem;
+    text-align: center;
+    color: var(--text-primary) !important;
+}
+
+#confirm-modal .modal-footer {
+    justify-content: center;
+}
+
+#confirm-modal .modal-footer button {
+    color: white !important;
+}
+
 /* Payment Modal Specific */
 #payment-modal .modal-body #payment-total,
 #payment-modal .modal-body #payment-change {
     color: var(--text-primary);
-}
-
-.dark-theme #payment-modal .modal-body #payment-total,
-.dark-theme #payment-modal .modal-body #payment-change {
-    color: #ffffff;
 }
 
 /* Scrollbar Styling */
@@ -757,6 +825,38 @@ body {
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+/* Notification */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 1001;
+}
+
+.notification.show {
+    opacity: 1;
+}
+
+.notification.success {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.notification.error {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.notification.warning {
+    background-color: var(--warning-color);
+    color: #212529;
 }
 
 /* Responsive */
