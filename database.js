@@ -71,6 +71,25 @@ class Database {
         });
     }
 
+    generateProductCode(type) {
+        return new Promise((resolve, reject) => {
+            this.db.get(
+                `SELECT COUNT(*) as count FROM products WHERE type = ?`,
+                [type],
+                (err, row) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        const prefix = type === 'atk' ? 'ATK' : 'MM';
+                        const count = row.count + 1;
+                        const code = `${prefix}-${String(count).padStart(3, '0')}`;
+                        resolve(code);
+                    }
+                }
+            );
+        });
+    }
+
     getProducts(type = null) {
         return new Promise((resolve, reject) => {
             let query = 'SELECT * FROM products';
@@ -94,34 +113,50 @@ class Database {
     }
 
     addProduct(product) {
-        return new Promise((resolve, reject) => {
-            const { code, name, type, purchase_price, selling_price, stock } = product;
-            this.db.run(`
-                INSERT INTO products (code, name, type, purchase_price, selling_price, stock)
-                VALUES (?, ?, ?, ?, ?, ?)
-            `, [code, name, type, purchase_price, selling_price, stock], function(err) {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve({ id: this.lastID });
-                }
-            });
+        return new Promise(async (resolve, reject) => {
+            const { name, type, purchase_price, selling_price, stock } = product;
+            try {
+                const code = await this.generateProductCode(type);
+                this.db.run(`
+                    INSERT INTO products (code, name, type, purchase_price, selling_price, stock)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                `, [code, name, type, purchase_price, selling_price, stock], function(err) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve({ id: this.lastID });
+                    }
+                });
+            } catch (err) {
+                reject(err);
+            }
         });
     }
 
     updateProduct(id, product) {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             const { code, name, type, purchase_price, selling_price, stock } = product;
-            this.db.run(`
-                UPDATE products
-                SET code = ?, name = ?, type = ?, purchase_price = ?, selling_price = ?, stock = ?
-                WHERE id = ?
-            `, [code, name, type, purchase_price, selling_price, stock, id], function(err) {
+            let newCode = code;
+            // Jika tipe berubah, generate kode baru
+            this.db.get('SELECT type FROM products WHERE id = ?', [id], async (err, row) => {
                 if (err) {
                     reject(err);
-                } else {
-                    resolve({ changes: this.changes });
+                    return;
                 }
+                if (row.type !== type) {
+                    newCode = await this.generateProductCode(type);
+                }
+                this.db.run(`
+                    UPDATE products
+                    SET code = ?, name = ?, type = ?, purchase_price = ?, selling_price = ?, stock = ?
+                    WHERE id = ?
+                `, [newCode, name, type, purchase_price, selling_price, stock, id], function(err) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve({ changes: this.changes });
+                    }
+                });
             });
         });
     }
