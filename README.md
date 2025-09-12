@@ -2,11 +2,3 @@
 
 Aplikasi Point of Sale (POS) desktop untuk SB Fotocopy yang dibangun dengan Electron.js dan SQLite.
 
-pajdpajopdjOJODJpojd
-
-k[kp[krk[qkrqpk[rkp[
-
-opop[o[pqop[qorpq[or
-
-
-;k;jpjpqjpoqjrpqjrpqjrpqjr
