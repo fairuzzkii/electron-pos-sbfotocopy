@@ -214,6 +214,7 @@ function renderProductsTable(productsToRender) {
     
     productsToRender.forEach(product => {
         const totalModal = product.purchase_price * product.stock;
+        const profitPerItem = product.selling_price - product.purchase_price;
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${product.code}</td>
@@ -221,6 +222,7 @@ function renderProductsTable(productsToRender) {
             <td>Rp ${formatNumber(product.purchase_price)}</td>
             <td>Rp ${formatNumber(totalModal)}</td>
             <td>Rp ${formatNumber(product.selling_price)}</td>
+            <td>Rp ${formatNumber(profitPerItem)}</td>
             <td>${product.stock}</td>
             <td>
                 <div class="action-buttons">

@@ -8,15 +8,16 @@
     "dev": "electron . --dev",
     "build": "electron-builder"
   },
-  "keywords": ["pos", "fotocopy", "electron"],
+  "keywords": [
+    "pos",
+    "fotocopy",
+    "electron"
+  ],
   "author": "SB Fotocopy",
   "license": "MIT",
   "devDependencies": {
     "electron": "^27.0.0",
     "electron-builder": "^24.6.4"
-  },
-  "dependencies": {
-    "sqlite3": "^5.1.6"
   },
   "build": {
     "appId": "com.sbfotocopy.pos",
@@ -26,7 +27,7 @@
     },
     "files": [
       "main.js",
-      "renderer.js", 
+      "renderer.js",
       "database.js",
       "index.html",
       "styles.css",
@@ -37,10 +38,13 @@
       "icon": "assets/logosb.png"
     },
     "mac": {
-      "icon": "assets/logosb.png" 
+      "icon": "assets/logosb.png"
     },
     "linux": {
       "icon": "assets/logosb.png"
     }
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.6"
   }
 }
