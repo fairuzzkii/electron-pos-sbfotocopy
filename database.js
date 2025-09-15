@@ -50,27 +50,8 @@ class Database {
                 )
             `);
 
-            const sampleProducts = [
-                ['ATK001', 'Pulpen', 'atk', 2000, 3000, 50],
-                ['ATK002', 'Buku Tulis', 'atk', 3000, 5000, 30],
-                ['MM001', 'Kopi Sachet', 'makmin', 1000, 2000, 100],
-                ['MM002', 'Teh Botol', 'makmin', 3000, 5000, 50]
-            ];
-
-            const stmt = this.db.prepare(`
-                INSERT OR IGNORE INTO products (code, name, type, purchase_price, selling_price, stock)
-                VALUES (?, ?, ?, ?, ?, ?)
-            `);
-
-            sampleProducts.forEach(product => {
-                stmt.run(product, (err) => {
-                    if (err) {
-                        console.error('Error inserting sample product:', err);
-                    }
-                });
-            });
-
-            stmt.finalize();
+            // Sample products dihapus sepenuhnya agar tidak muncul lagi
+            // Tidak ada insert sample di sini
         });
     }
 
@@ -81,11 +62,13 @@ class Database {
                 [type],
                 (err, row) => {
                     if (err) {
+                        console.error('Error generating product code:', err);
                         reject(err);
                     } else {
                         const prefix = type === 'atk' ? 'ATK' : 'MM';
-                        const count = row.count + 1;
+                        const count = (row ? row.count : 0) + 1; // Pastikan row ada, jika tidak count=1
                         const code = `${prefix}-${String(count).padStart(3, '0')}`;
+                        console.log(`Generated code for ${type}: ${code}`); // Logging untuk debug
                         resolve(code);
                     }
                 }
@@ -120,6 +103,9 @@ class Database {
             const { name, type, purchase_price, selling_price, stock } = product;
             try {
                 const code = await this.generateProductCode(type);
+                if (!code) {
+                    throw new Error('Failed to generate code');
+                }
                 this.db.run(`
                     INSERT INTO products (code, name, type, purchase_price, selling_price, stock)
                     VALUES (?, ?, ?, ?, ?, ?)
@@ -131,6 +117,7 @@ class Database {
                     }
                 });
             } catch (err) {
+                console.error('Error adding product:', err);
                 reject(err);
             }
         });
