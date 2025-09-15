@@ -1,18 +1,17 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-const { app } = require('electron');
 
 class Database {
     constructor() {
-        const dbPath = path.join(app.getPath('userData'), 'sb_fotocopy.db');
-        console.log('Database path:', dbPath);
-        this.db = new sqlite3.Database(dbPath, (err) => {
+        // Gunakan path lokal di folder proyek
+        this.dbPath = path.join(__dirname, 'sb_fotocopy.db');
+        this.db = new sqlite3.Database(this.dbPath, (err) => {
             if (err) {
-                console.error('Error connecting to database:', err);
-            } else {
-                console.log('Connected to SQLite database');
+                console.error('Error opening database:', err.message);
+                throw err;
             }
-            this.init();
+            console.log('Connected to SQLite database at:', this.dbPath);
+            this.init(); // Ubah dari this.initialize() ke this.init()
         });
     }
 
