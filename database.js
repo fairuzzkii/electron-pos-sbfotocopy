@@ -3,10 +3,7 @@ const path = require('path');
 
 class Database {
     constructor() {
-        // Cek apakah di lingkungan Electron
         const isElectron = typeof process !== 'undefined' && process.versions && process.versions.electron;
-        
-        // Tentukan path database
         if (isElectron) {
             const { app } = require('electron');
             this.dbPath = path.join(app.getPath('userData'), 'sb_fotocopy.db');
@@ -81,14 +78,24 @@ class Database {
         });
     }
 
-    getProducts(type = null) {
+    getProducts(type = null, searchQuery = '') {
         return new Promise((resolve, reject) => {
             let query = 'SELECT * FROM products';
             let params = [];
+            let conditions = [];
 
             if (type) {
-                query += ' WHERE type = ?';
+                conditions.push('type = ?');
                 params.push(type);
+            }
+
+            if (searchQuery) {
+                conditions.push('(name LIKE ? OR code LIKE ?)');
+                params.push(`%${searchQuery}%`, `%${searchQuery}%`);
+            }
+
+            if (conditions.length > 0) {
+                query += ' WHERE ' + conditions.join(' AND ');
             }
 
             query += ' ORDER BY name';

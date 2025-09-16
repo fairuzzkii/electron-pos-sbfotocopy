@@ -581,7 +581,6 @@ function showAddStockModal() {
     document.getElementById('stock-add-amount').value = '';
     populateStockSelect();
     showModal('add-stock-modal');
-    // Kembalikan fokus ke input pencarian
     setTimeout(() => {
         document.getElementById('stock-search').focus();
     }, 100);
@@ -617,7 +616,6 @@ function showAddProductModal() {
     document.getElementById('product-form').reset();
     document.getElementById('product-type').value = currentProductTab;
     showModal('product-modal');
-    // Kembalikan fokus ke input pertama
     setTimeout(() => {
         document.getElementById('product-name').focus();
     }, 100);
@@ -636,7 +634,6 @@ function showEditProductModal(product) {
     document.getElementById('product-stock').value = product.stock;
     
     showModal('product-modal');
-    // Kembalikan fokus ke input pertama
     setTimeout(() => {
         document.getElementById('product-name').focus();
     }, 100);
@@ -668,7 +665,6 @@ async function saveProduct() {
         await loadProducts();
         loadProductsTable();
         closeModal('product-modal');
-        // Kembalikan fokus ke kolom pencarian
         setTimeout(() => {
             document.getElementById('product-search').focus();
         }, 100);
@@ -686,11 +682,10 @@ async function deleteProduct(id) {
             await loadProducts();
             loadProductsTable();
             populateStockSelect();
-            // Paksa reflow UI tanpa reload penuh
             setTimeout(() => {
                 document.getElementById('product-search').focus();
                 document.body.style.display = 'none';
-                document.body.offsetHeight; // Trigger reflow
+                document.body.offsetHeight;
                 document.body.style.display = 'block';
                 console.log('Fokus dikembalikan ke product-search');
             }, 100);
@@ -1105,7 +1100,6 @@ function showAddExpenseModal() {
     document.getElementById('expense-description').value = '';
     document.getElementById('expense-amount').value = '';
     showModal('add-expense-modal');
-    // Kembalikan fokus ke input pertama
     setTimeout(() => {
         document.getElementById('expense-description').focus();
     }, 100);
@@ -1125,7 +1119,6 @@ function showEditExpenseModal(id) {
     document.getElementById('edit-expense-amount').value = expense.amount;
     
     showModal('edit-expense-modal');
-    // Kembalikan fokus ke input pertama
     setTimeout(() => {
         document.getElementById('edit-expense-description').focus();
     }, 100);
@@ -1183,11 +1176,10 @@ async function deleteExpense(id) {
             await ipcRenderer.invoke('db-delete-expense', id);
             showNotification('Pengeluaran berhasil dihapus', 'success');
             await loadExpensesData();
-            // Paksa reflow UI tanpa reload penuh
             setTimeout(() => {
                 document.getElementById('expenses-search').focus();
                 document.body.style.display = 'none';
-                document.body.offsetHeight; // Trigger reflow
+                document.body.offsetHeight;
                 document.body.style.display = 'block';
                 console.log('Fokus dikembalikan ke expenses-search');
             }, 100);
@@ -1204,11 +1196,10 @@ async function deleteSale(id) {
             await ipcRenderer.invoke('db-delete-sale', id);
             showNotification('Penjualan berhasil dihapus', 'success');
             await loadHistoryData();
-            // Paksa reflow UI tanpa reload penuh
             setTimeout(() => {
                 document.getElementById('history-search').focus();
                 document.body.style.display = 'none';
-                document.body.offsetHeight; // Trigger reflow
+                document.body.offsetHeight;
                 document.body.style.display = 'block';
                 console.log('Fokus dikembalikan ke history-search');
             }, 100);
@@ -1221,13 +1212,11 @@ async function deleteSale(id) {
 
 function showModal(modalId) {
     document.getElementById(modalId).classList.add('show');
-    // Pastikan modal dapat diinteraksi
     document.getElementById(modalId).style.pointerEvents = 'auto';
 }
 
 function closeModal(modalId) {
     document.getElementById(modalId).classList.remove('show');
-    // Kembalikan fokus ke elemen terkait setelah menutup modal
     setTimeout(() => {
         const focusElement = modalId === 'product-modal' ? 'product-search' :
                             modalId === 'add-stock-modal' ? 'product-search' :

@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const Database = require('./database');
+const fs = require('fs');
 
 let mainWindow;
 let db;
@@ -15,7 +16,7 @@ function createWindow() {
             nodeIntegration: true,
             contextIsolation: false
         },
-        icon: path.join(__dirname, 'assets', 'logosb.png'), // Ubah dari icon.png ke logosb.png
+        icon: path.join(__dirname, 'assets', 'logosb.png'),
         titleBarStyle: 'default',
         show: false
     });
@@ -35,6 +36,14 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+    // Salin database ke userData jika belum ada
+    const dbSource = path.join(__dirname, 'sb_fotocopy.db');
+    const dbDest = path.join(app.getPath('userData'), 'sb_fotocopy.db');
+    if (!fs.existsSync(dbDest) && fs.existsSync(dbSource)) {
+        fs.copyFileSync(dbSource, dbDest);
+        console.log('Database copied to:', dbDest);
+    }
+
     db = new Database();
     createWindow();
 
@@ -51,8 +60,8 @@ app.on('window-all-closed', () => {
     }
 });
 
-ipcMain.handle('db-get-products', (event, type) => {
-    return db.getProducts(type);
+ipcMain.handle('db-get-products', (event, type, searchQuery = '') => {
+    return db.getProducts(type, searchQuery);
 });
 
 ipcMain.handle('db-add-product', (event, product) => {
