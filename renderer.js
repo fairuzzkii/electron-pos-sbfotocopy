@@ -12,7 +12,7 @@ let editingProductId = null;
 let editingExpenseId = null;
 let filteredSales = [];
 let filteredExpenses = [];
-let confirmResolve = null; // Untuk menangani Promise di confirm modal
+let confirmResolve = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadProducts();
@@ -33,7 +33,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     populateStockSelect();
 });
 
-// Fungsi untuk menangani confirm modal
 function showConfirmModal(message, onConfirm) {
     return new Promise((resolve) => {
         confirmResolve = resolve;
@@ -48,7 +47,7 @@ function showConfirmModal(message, onConfirm) {
 
 function closeConfirmModal() {
     closeModal('confirm-modal');
-    document.getElementById('confirm-yes-btn').onclick = null; // Reset listener
+    document.getElementById('confirm-yes-btn').onclick = null;
     if (confirmResolve) {
         confirmResolve();
         confirmResolve = null;
@@ -217,7 +216,7 @@ function renderProductsTable(productsToRender) {
         const profitPerItem = product.selling_price - product.purchase_price;
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${product.code}</td>
+            <td>${product.code || '-'}</td>
             <td>${product.name}</td>
             <td>Rp ${formatNumber(product.purchase_price)}</td>
             <td>Rp ${formatNumber(totalModal)}</td>
@@ -648,16 +647,22 @@ async function saveProduct() {
         stock: parseInt(document.getElementById('product-stock').value) || 0
     };
     
-    if (!productData.name || productData.selling_price <= 0) {
-        showNotification('Mohon lengkapi semua field', 'warning');
+    if (!productData.name) {
+        showNotification('Nama barang wajib diisi', 'warning');
+        return;
+    }
+    if (productData.purchase_price < 0 || productData.selling_price <= 0 || productData.stock < 0) {
+        showNotification('Harga beli, harga jual, dan stok harus valid', 'warning');
         return;
     }
     
     try {
         if (isEditMode) {
+            console.log('Updating product:', { id: editingProductId, ...productData });
             await ipcRenderer.invoke('db-update-product', editingProductId, productData);
             showNotification('Produk berhasil diupdate', 'success');
         } else {
+            console.log('Adding product:', productData);
             await ipcRenderer.invoke('db-add-product', productData);
             showNotification('Produk berhasil ditambahkan', 'success');
         }
@@ -670,7 +675,7 @@ async function saveProduct() {
         }, 100);
     } catch (error) {
         console.error('Error saving product:', error);
-        showNotification('Error menyimpan produk', 'error');
+        showNotification('Error menyimpan produk: ' + error.message, 'error');
     }
 }
 

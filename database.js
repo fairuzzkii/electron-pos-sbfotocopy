@@ -59,17 +59,21 @@ class Database {
 
     generateProductCode(type) {
         return new Promise((resolve, reject) => {
+            const prefix = type === 'atk' ? 'ATK' : 'MM';
             this.db.get(
-                `SELECT COUNT(*) as count FROM products WHERE type = ?`,
+                `SELECT code FROM products WHERE type = ? ORDER BY CAST(SUBSTR(code, 5) AS INTEGER) DESC LIMIT 1`,
                 [type],
                 (err, row) => {
                     if (err) {
                         console.error('Error generating product code:', err);
                         reject(err);
                     } else {
-                        const prefix = type === 'atk' ? 'ATK' : 'MM';
-                        const count = (row ? row.count : 0) + 1;
-                        const code = `${prefix}-${String(count).padStart(3, '0')}`;
+                        let nextNumber = 1;
+                        if (row && row.code) {
+                            const currentNumber = parseInt(row.code.split('-')[1]);
+                            nextNumber = currentNumber + 1;
+                        }
+                        const code = `${prefix}-${String(nextNumber).padStart(3, '0')}`;
                         console.log(`Generated code for ${type}: ${code}`);
                         resolve(code);
                     }
@@ -123,6 +127,7 @@ class Database {
                     VALUES (?, ?, ?, ?, ?, ?)
                 `, [code, name, type, purchase_price, selling_price, stock], function(err) {
                     if (err) {
+                        console.error('Error adding product:', err);
                         reject(err);
                     } else {
                         resolve({ id: this.lastID });
@@ -137,15 +142,16 @@ class Database {
 
     updateProduct(id, product) {
         return new Promise(async (resolve, reject) => {
-            const { code, name, type, purchase_price, selling_price, stock } = product;
-            let newCode = code;
-            this.db.get('SELECT type FROM products WHERE id = ?', [id], async (err, row) => {
+            const { name, type, purchase_price, selling_price, stock } = product;
+            this.db.get('SELECT code, type FROM products WHERE id = ?', [id], async (err, row) => {
                 if (err) {
+                    console.error('Error fetching product for update:', err);
                     reject(err);
                     return;
                 }
+                let newCode = row.code; // Pertahankan kode lama jika tipe tidak berubah
                 if (row.type !== type) {
-                    newCode = await this.generateProductCode(type);
+                    newCode = await this.generateProductCode(type); // Hanya buat kode baru jika tipe berubah
                 }
                 this.db.run(`
                     UPDATE products
@@ -153,8 +159,10 @@ class Database {
                     WHERE id = ?
                 `, [newCode, name, type, purchase_price, selling_price, stock, id], function(err) {
                     if (err) {
+                        console.error('Error updating product:', err);
                         reject(err);
                     } else {
+                        console.log(`Product updated: ID=${id}, Code=${newCode}, Name=${name}`);
                         resolve({ changes: this.changes });
                     }
                 });
