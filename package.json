@@ -33,7 +33,8 @@
       "database.js",
       "index.html",
       "styles.css",
-      "assets/**/*"
+      "assets/**/*",
+      "sb_fotocopy.db"
     ],
     "win": {
       "icon": "assets/logosb.png",

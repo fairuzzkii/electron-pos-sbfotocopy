@@ -3,15 +3,24 @@ const path = require('path');
 
 class Database {
     constructor() {
-        // Gunakan path lokal di folder proyek
-        this.dbPath = path.join(__dirname, 'sb_fotocopy.db');
+        // Cek apakah di lingkungan Electron
+        const isElectron = typeof process !== 'undefined' && process.versions && process.versions.electron;
+        
+        // Tentukan path database
+        if (isElectron) {
+            const { app } = require('electron');
+            this.dbPath = path.join(app.getPath('userData'), 'sb_fotocopy.db');
+        } else {
+            this.dbPath = path.join(__dirname, 'sb_fotocopy.db');
+        }
+
         this.db = new sqlite3.Database(this.dbPath, (err) => {
             if (err) {
                 console.error('Error opening database:', err.message);
                 throw err;
             }
             console.log('Connected to SQLite database at:', this.dbPath);
-            this.init(); // Ubah dari this.initialize() ke this.init()
+            this.init();
         });
     }
 
@@ -48,9 +57,6 @@ class Database {
                     created_at TEXT
                 )
             `);
-
-            // Sample products dihapus sepenuhnya agar tidak muncul lagi
-            // Tidak ada insert sample di sini
         });
     }
 
@@ -65,9 +71,9 @@ class Database {
                         reject(err);
                     } else {
                         const prefix = type === 'atk' ? 'ATK' : 'MM';
-                        const count = (row ? row.count : 0) + 1; // Pastikan row ada, jika tidak count=1
+                        const count = (row ? row.count : 0) + 1;
                         const code = `${prefix}-${String(count).padStart(3, '0')}`;
-                        console.log(`Generated code for ${type}: ${code}`); // Logging untuk debug
+                        console.log(`Generated code for ${type}: ${code}`);
                         resolve(code);
                     }
                 }
