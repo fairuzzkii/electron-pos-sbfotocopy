@@ -124,19 +124,38 @@
 
                 <div class="product-management">
                     <div class="management-header">
-                        <input type="text" id="product-search" placeholder="Cari barang berdasarkan kode atau nama..." onkeyup="searchProductsTable()">
-                        <button onclick="showAddProductModal()" class="btn-primary">
-                            <i class="fas fa-plus"></i> Tambah Barang
-                        </button>
-                        <button onclick="showAddStockModal()" class="btn-primary">
-                            <i class="fas fa-plus-circle"></i> Tambah Stok
-                        </button>
+                        <div class="search-and-total">
+                            <input type="text" id="product-search" placeholder="Cari barang berdasarkan kode atau nama..." onkeyup="searchProductsTable()">
+                            <div id="total-products" class="total-info"></div>
+                        </div>
+                        <div class="filter-group">
+                            <label>Urutkan berdasarkan:</label>
+                            <select id="product-sort" onchange="sortProductsTable()">
+                                <option value="name-asc">Alphabet (A-Z)</option>
+                                <option value="name-desc">Alphabet (Z-A)</option>
+                                <option value="code-asc">Kode Produk (A-Z)</option>
+                                <option value="code-desc">Kode Produk (Z-A)</option>
+                                <option value="stock-asc">Stok (Rendah-Tinggi)</option>
+                                <option value="stock-desc">Stok (Tinggi-Rendah)</option>
+                                <option value="selling_price-asc">Harga Jual (Termurah)</option>
+                                <option value="selling_price-desc">Harga Jual (Termahal)</option>
+                            </select>
+                        </div>
+                        <div class="action-buttons">
+                            <button onclick="showAddProductModal()" class="btn-primary">
+                                <i class="fas fa-plus"></i> Tambah Barang
+                            </button>
+                            <button onclick="showAddStockModal()" class="btn-primary">
+                                <i class="fas fa-plus-circle"></i> Tambah Stok
+                            </button>
+                        </div>
                     </div>
 
                     <div class="product-table-container">
                         <table id="products-table" class="data-table">
                             <thead>
                                 <tr>
+                                    <th>No.</th>
                                     <th>Kode</th>
                                     <th>Nama Barang</th>
                                     <th>Harga Beli</th>

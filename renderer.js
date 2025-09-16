@@ -204,18 +204,56 @@ function searchProductsTable() {
         product.code.toLowerCase().includes(searchTerm)
     );
     console.log(`Produk ditemukan di tabel: ${filtered.length}`);
-    renderProductsTable(filtered);
+    sortAndRenderProductsTable(filtered);
+}
+
+function sortProductsTable() {
+    const currentProducts = products[currentProductTab] || [];
+    const searchTerm = document.getElementById('product-search').value.toLowerCase();
+    const filtered = currentProducts.filter(product =>
+        product.name.toLowerCase().includes(searchTerm) ||
+        product.code.toLowerCase().includes(searchTerm)
+    );
+    sortAndRenderProductsTable(filtered);
+}
+
+function sortAndRenderProductsTable(productsToRender) {
+    const sortValue = document.getElementById('product-sort').value || 'name-asc';
+    const [sortField, sortDir] = sortValue.split('-');
+
+    productsToRender.sort((a, b) => {
+        let valA = a[sortField];
+        let valB = b[sortField];
+
+        if (sortField === 'name' || sortField === 'code') {
+            valA = valA.toLowerCase();
+            valB = valB.toLowerCase();
+        } else {
+            valA = parseFloat(valA) || 0;
+            valB = parseFloat(valB) || 0;
+        }
+
+        if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+        if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    renderProductsTable(productsToRender);
 }
 
 function renderProductsTable(productsToRender) {
     const tbody = document.querySelector('#products-table tbody');
     tbody.innerHTML = '';
     
-    productsToRender.forEach(product => {
+    const totalProducts = productsToRender.length;
+    document.getElementById('total-products').textContent = `Total Barang: ${totalProducts}`;
+
+    productsToRender.forEach((product, index) => {
         const totalModal = product.purchase_price * product.stock;
         const profitPerItem = product.selling_price - product.purchase_price;
         const row = document.createElement('tr');
         row.innerHTML = `
+            <td>${index + 1}</td>
             <td>${product.code || '-'}</td>
             <td>${product.name}</td>
             <td>Rp ${formatNumber(product.purchase_price)}</td>
@@ -245,7 +283,7 @@ function loadProductsTable() {
         product.name.toLowerCase().includes(searchTerm) ||
         product.code.toLowerCase().includes(searchTerm)
     );
-    renderProductsTable(filtered);
+    sortAndRenderProductsTable(filtered);
 }
 
 function addToCart(type, product) {
