@@ -2,8 +2,27 @@
 
 Aplikasi Point of Sale (POS) desktop untuk SB Fotocopy yang dibangun dengan Electron.js dan SQLite.
 
-kjdalkjdkaljdlajdja
-adlja;ljd;aljd;lajd;'
-;adj;ajd;lajwl;j;aljda;
-;alda;'jdal;wjdl;awjdlaw;jdl;awd
-a;ldal;wjdl;ajdl;ajdal;djlawjdal;'
+import 'package:flutter/material.dart';
+import 'features/authentication/presentation/pages/login_page.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false, 
+      title: 'Sidilan App',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
+      home: const LoginPage(),
+    );
+  }
+}
+
