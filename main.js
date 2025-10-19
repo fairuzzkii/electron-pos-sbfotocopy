@@ -2,6 +2,8 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const Database = require('./database');
 const fs = require('fs');
+const ExcelJS = require('exceljs');
+const os = require('os');
 
 let mainWindow;
 let db;
@@ -60,70 +62,67 @@ app.on('window-all-closed', () => {
     }
 });
 
-ipcMain.handle('db-get-products', (event, type, searchQuery = '') => {
-    return db.getProducts(type, searchQuery);
+// ✅ IPC Handlers Database
+ipcMain.handle('db-get-products', (event, type, searchQuery = '') => db.getProducts(type, searchQuery));
+ipcMain.handle('db-add-product', (event, product) => db.addProduct(product));
+ipcMain.handle('db-update-product', (event, id, product) => db.updateProduct(id, product));
+ipcMain.handle('db-delete-product', (event, id) => db.deleteProduct(id));
+ipcMain.handle('db-add-sale', (event, sale) => db.addSale(sale));
+ipcMain.handle('db-get-sales', (event, filters) => db.getSales(filters));
+ipcMain.handle('db-get-sales-summary', (event, filters) => db.getSalesSummary(filters));
+ipcMain.handle('db-update-stock', (event, productId, delta) => db.updateStock(productId, delta));
+ipcMain.handle('db-get-expenses', (event, filters) => db.getExpenses(filters));
+ipcMain.handle('db-get-expenses-summary', (event, filters) => db.getExpensesSummary(filters));
+ipcMain.handle('db-add-expense', (event, expense) => db.addExpense(expense));
+ipcMain.handle('db-update-expense', (event, id, expense) => db.updateExpense(id, expense));
+ipcMain.handle('db-delete-expense', (event, id) => db.deleteExpense(id));
+ipcMain.handle('db-delete-sale', (event, id) => db.deleteSale(id));
+ipcMain.handle('force-refresh-ui', () => mainWindow.webContents.reloadIgnoringCache());
+
+// ✅ IPC Export to Excel
+ipcMain.handle('export-sales-to-excel', async (event, salesData) => {
+    try {
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('Laporan Penjualan');
+
+        sheet.columns = [
+            { header: 'Tanggal & Jam', key: 'created_at', width: 22 },
+            { header: 'Jenis', key: 'type', width: 15 },
+            { header: 'Nama Barang/Layanan', key: 'name', width: 30 },
+            { header: 'Metode Bayar', key: 'payment_method', width: 15 },
+            { header: 'Harga Satuan', key: 'price', width: 15 },
+            { header: 'Qty', key: 'qty', width: 10 },
+            { header: 'Total', key: 'total', width: 15 },
+        ];
+
+        salesData.forEach(sale => {
+            sale.items.forEach(item => {
+                sheet.addRow({
+                    created_at: sale.created_at,
+                    type: sale.type,
+                    name: item.name,
+                    payment_method: sale.payment_method,
+                    price: item.price,
+                    qty: item.quantity,
+                    total: item.total
+                });
+            });
+        });
+
+        sheet.getRow(1).font = { bold: true };
+        sheet.getRow(1).alignment = { horizontal: 'center' };
+
+        const downloadsPath = path.join(os.homedir(), 'Downloads');
+        const filePath = path.join(downloadsPath, `Laporan_Penjualan_${Date.now()}.xlsx`);
+        await workbook.xlsx.writeFile(filePath);
+        console.log('✅ Laporan diekspor ke:', filePath);
+
+        return { success: true, path: filePath };
+    } catch (error) {
+        console.error('❌ Gagal ekspor Excel:', error);
+        return { success: false, message: error.message };
+    }
 });
 
-ipcMain.handle('db-add-product', (event, product) => {
-    return db.addProduct(product);
-});
-
-ipcMain.handle('db-update-product', (event, id, product) => {
-    return db.updateProduct(id, product);
-});
-
-ipcMain.handle('db-delete-product', (event, id) => {
-    return db.deleteProduct(id);
-});
-
-ipcMain.handle('db-add-sale', (event, sale) => {
-    return db.addSale(sale);
-});
-
-ipcMain.handle('db-get-sales', (event, filters) => {
-    return db.getSales(filters);
-});
-
-ipcMain.handle('db-get-sales-summary', (event, filters) => {
-    return db.getSalesSummary(filters);
-});
-
-ipcMain.handle('db-update-stock', (event, productId, delta) => {
-    return db.updateStock(productId, delta);
-});
-
-ipcMain.handle('db-get-expenses', (event, filters) => {
-    return db.getExpenses(filters);
-});
-
-ipcMain.handle('db-get-expenses-summary', (event, filters) => {
-    return db.getExpensesSummary(filters);
-});
-
-ipcMain.handle('db-add-expense', (event, expense) => {
-    return db.addExpense(expense);
-});
-
-ipcMain.handle('db-update-expense', (event, id, expense) => {
-    return db.updateExpense(id, expense);
-});
-
-ipcMain.handle('db-delete-expense', (event, id) => {
-    return db.deleteExpense(id);
-});
-
-ipcMain.handle('db-delete-sale', (event, id) => {
-    return db.deleteSale(id);
-});
-
-process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
-});
-
-process.on('unhandledRejection', (error) => {
-    console.error('Unhandled Rejection:', error);
-});
-
-ipcMain.handle('force-refresh-ui', () => {
-    mainWindow.webContents.reloadIgnoringCache();
-});
+process.on('uncaughtException', (error) => console.error('Uncaught Exception:', error));
+process.on('unhandledRejection', (error) => console.error('Unhandled Rejection:', error));

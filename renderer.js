@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadProducts();
     updateCartDisplays();
     updateGrandTotal();
-    loadHistoryData();
+    loadHistoryData(true);
     
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.body.className = savedTheme + '-theme';
@@ -81,7 +81,8 @@ function showPage(page) {
     if (page === 'products') {
         loadProductsTable();
     } else if (page === 'history') {
-        loadHistoryData();
+        // ✅ paksa reload saat halaman history dibuka
+        loadHistoryData(true);
     } else if (page === 'fotocopy-expenses') {
         loadExpensesData();
     }
@@ -100,7 +101,8 @@ function showHistoryTab(tab) {
     document.querySelector(`[onclick="showHistoryTab('${tab}')"]`).classList.add('active');
     
     currentHistoryTab = tab;
-    loadHistoryData();
+    // ✅ paksa reload setiap kali ganti tab agar tidak perlu klik 2x
+    loadHistoryData(true);
 }
 
 async function loadProducts() {
@@ -246,11 +248,18 @@ function renderProductsTable(productsToRender) {
     tbody.innerHTML = '';
     
     const totalProducts = productsToRender.length;
-    document.getElementById('total-products').textContent = `Total Barang: ${totalProducts}`;
+    const totalModalSemua = productsToRender.reduce(
+        (sum, p) => sum + ((parseFloat(p.purchase_price) || 0) * (parseInt(p.stock) || 0)),
+        0
+    );
+
+    // ✅ Tampilkan total barang & total seluruh modal
+    document.getElementById('total-products').innerHTML =
+        `Total Barang: ${totalProducts} | Total Seluruh Modal: <strong>Rp ${formatNumber(totalModalSemua)}</strong>`;
 
     productsToRender.forEach((product, index) => {
-        const totalModal = product.purchase_price * product.stock;
-        const profitPerItem = product.selling_price - product.purchase_price;
+        const totalModal = (parseFloat(product.purchase_price) || 0) * (parseInt(product.stock) || 0);
+        const profitPerItem = (parseFloat(product.selling_price) || 0) - (parseFloat(product.purchase_price) || 0);
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${index + 1}</td>
@@ -739,11 +748,17 @@ async function deleteProduct(id) {
     });
 }
 
-async function loadHistoryData() {
+async function loadHistoryData(forceReload = false) {
     const baseFilters = getHistoryFilters();
     let sales = [];
     
     try {
+        // ✅ bersihkan tabel saat force reload agar tidak ada flicker data lama
+        if (forceReload) {
+            const tbody = document.querySelector('#history-table tbody');
+            if (tbody) tbody.innerHTML = '';
+        }
+
         if (currentHistoryTab === 'summary') {
             sales = await ipcRenderer.invoke('db-get-sales', baseFilters);
             await loadSummaryData(baseFilters, sales);
@@ -762,7 +777,13 @@ async function loadHistoryData() {
         }
         
         filteredSales = sales;
+        // ✅ selalu jalankan search agar input filter langsung bekerja pada data baru
         searchHistory();
+        // ✅ Tambahan untuk memastikan tab Fotocopy langsung tampil akurat
+        if (currentHistoryTab === 'fotocopy') {
+            await loadFotocopyData(baseFilters, sales);
+}
+
         
     } catch (error) {
         console.error('Error loading history:', error);
@@ -781,24 +802,34 @@ function searchHistory() {
                 sale.items.forEach(item => {
                     if ((item.type === 'fotocopy' || item.type === 'print-color') &&
                         (item.name.toLowerCase().includes(searchTerm) ||
-                         item.total.toString().toLowerCase().includes(searchTerm) ||
-                         sale.created_at.toLowerCase().includes(searchTerm))) {
+                         String(item.total).toLowerCase().includes(searchTerm) ||
+                         String(sale.created_at).toLowerCase().includes(searchTerm))) {
                         filteredItems.push({ ...item, saleDate: sale.created_at, paymentMethod: sale.payment_method, saleType: sale.type });
                     }
                 });
             });
             loadSalesTable(filteredItems);
         } else {
+            // Untuk tab lain, filteredSales sudah sesuai tab; cukup filter by text
             salesToShow = filteredSales.filter(sale => {
                 const itemsText = sale.items.map(item => item.name).join(' ').toLowerCase();
-                const totalText = sale.total_amount.toString().toLowerCase();
-                const dateText = sale.created_at.toLowerCase();
-                return itemsText.includes(searchTerm) || totalText.includes(searchTerm) || dateText.includes(searchTerm);
+                const totalText = String(sale.total_amount).toLowerCase();
+                const dateText = String(sale.created_at).toLowerCase();
+                return (
+                    itemsText.includes(searchTerm) ||
+                    totalText.includes(searchTerm) ||
+                    dateText.includes(searchTerm)
+                );
             });
             loadSalesTable(salesToShow);
         }
     } else {
-        loadSalesTable(currentHistoryTab === 'fotocopy' ? flattenFotocopyItems(salesToShow) : salesToShow);
+        // tanpa pencarian → tampilkan sesuai tab aktif
+        if (currentHistoryTab === 'fotocopy') {
+            loadSalesTable(flattenFotocopyItems(salesToShow));
+        } else {
+            loadSalesTable(salesToShow);
+        }
     }
 }
 
@@ -1035,7 +1066,7 @@ function updateHistoryData() {
         customRange.style.display = 'none';
     }
     
-    loadHistoryData();
+    loadHistoryData(true);
 }
 
 async function loadExpensesData() {
@@ -1081,7 +1112,7 @@ function searchExpenses() {
     const searchTerm = document.getElementById('expenses-search').value.toLowerCase();
     const filtered = filteredExpenses.filter(expense =>
         expense.description.toLowerCase().includes(searchTerm) ||
-        expense.created_at.toLowerCase().includes(searchTerm)
+        String(expense.created_at).toLowerCase().includes(searchTerm)
     );
     
     const tbody = document.querySelector('#expenses-table tbody');
@@ -1090,7 +1121,7 @@ function searchExpenses() {
     filtered.forEach(expense => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${expense.created_at.split(' ')[0]}</td>
+            <td>${String(expense.created_at).split(' ')[0]}</td>
             <td>${expense.description}</td>
             <td>Rp ${formatNumber(expense.amount)}</td>
             <td>
@@ -1157,7 +1188,7 @@ function showEditExpenseModal(id) {
     
     editingExpenseId = id;
     document.getElementById('edit-expense-id').value = id;
-    document.getElementById('edit-expense-date').value = expense.created_at.split(' ')[0];
+    document.getElementById('edit-expense-date').value = String(expense.created_at).split(' ')[0];
     document.getElementById('edit-expense-description').value = expense.description;
     document.getElementById('edit-expense-amount').value = expense.amount;
     
@@ -1238,7 +1269,7 @@ async function deleteSale(id) {
         try {
             await ipcRenderer.invoke('db-delete-sale', id);
             showNotification('Penjualan berhasil dihapus', 'success');
-            await loadHistoryData();
+            await loadHistoryData(true);
             setTimeout(() => {
                 document.getElementById('history-search').focus();
                 document.body.style.display = 'none';
@@ -1266,7 +1297,8 @@ function closeModal(modalId) {
                             modalId === 'add-expense-modal' ? 'expenses-search' :
                             modalId === 'edit-expense-modal' ? 'expenses-search' :
                             modalId === 'payment-modal' ? 'atk-search' : 'product-search';
-        document.getElementById(focusElement).focus();
+        const el = document.getElementById(focusElement);
+        if (el) el.focus();
         console.log(`Fokus dikembalikan ke ${focusElement} setelah menutup modal`);
     }, 100);
 }
@@ -1290,5 +1322,40 @@ function showNotification(message, type) {
 }
 
 function formatNumber(num) {
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const n = Number(num) || 0;
+    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+
+// ✅ Fungsi Ekspor Laporan ke Excel
+async function exportSales() {
+    try {
+        const filters = getHistoryFilters();
+
+        let dataToExport = [];
+        if (currentHistoryTab === 'summary') {
+            dataToExport = await ipcRenderer.invoke('db-get-sales', filters);
+        } else if (currentHistoryTab === 'qris' || currentHistoryTab === 'cash') {
+            dataToExport = await ipcRenderer.invoke('db-get-sales', { ...filters, payment_method: currentHistoryTab });
+        } else if (currentHistoryTab === 'fotocopy') {
+            dataToExport = await ipcRenderer.invoke('db-get-sales', { ...filters, type: 'fotocopy' });
+        } else {
+            dataToExport = await ipcRenderer.invoke('db-get-sales', { ...filters, type: currentHistoryTab });
+        }
+
+        if (!dataToExport.length) {
+            showNotification('Tidak ada data untuk diekspor', 'warning');
+            return;
+        }
+
+        const result = await ipcRenderer.invoke('export-sales-to-excel', dataToExport);
+        if (result.success) {
+            showNotification(`✅ Laporan berhasil diekspor ke:\n${result.path}`, 'success');
+        } else {
+            showNotification(`Gagal ekspor laporan: ${result.message}`, 'error');
+        }
+    } catch (err) {
+        console.error('❌ Error exportSales:', err);
+        showNotification('Terjadi kesalahan saat ekspor laporan', 'error');
+    }
 }
