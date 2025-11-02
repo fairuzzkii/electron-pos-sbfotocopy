@@ -30,6 +30,11 @@
                     <i class="fas fa-history"></i>
                     <span>Penjualan</span>
                 </a>
+                <!-- ✅ Nav baru: Riwayat Pembelian -->
+                <a href="#" class="nav-item" onclick="showPage('purchases')">
+                    <i class="fas fa-cart-arrow-down"></i>
+                    <span>Pembelian</span>
+                </a>
                 <a href="#" class="nav-item" onclick="showPage('fotocopy-expenses')">
                     <i class="fas fa-calculator"></i>
                     <span>Pengeluaran</span>
@@ -168,6 +173,11 @@
                             </thead>
                             <tbody></tbody>
                         </table>
+                        <!-- ✅ Pagination footer untuk Products -->
+                        <div class="table-footer">
+                            <div class="table-info" id="products-table-info"></div>
+                            <div class="pagination-controls" id="products-pagination"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -221,7 +231,6 @@
                     <button onclick="exportSales()" class="btn-success">
                     <i class="fas fa-file-excel"></i> Ekspor ke Excel
                     </button>
-
                 </div>
 
                 <div class="summary-cards" id="summary-cards">
@@ -271,6 +280,82 @@
                         </thead>
                         <tbody></tbody>
                     </table>
+                    <!-- ✅ Pagination footer untuk History -->
+                    <div class="table-footer">
+                        <div class="table-info" id="history-table-info"></div>
+                        <div class="pagination-controls" id="history-pagination"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ✅ Purchases Page (Riwayat Pembelian) -->
+            <div id="purchases-page" class="page">
+                <div class="page-header">
+                    <h1>Riwayat Pembelian</h1>
+                    <p>Catatan barang masuk sesuai periode</p>
+                </div>
+
+                <div class="history-tabs">
+                    <button class="tab-btn active" onclick="showPurchasesTab('atk')">
+                        <i class="fas fa-pencil-alt"></i> ATK
+                    </button>
+                    <button class="tab-btn" onclick="showPurchasesTab('makmin')">
+                        <i class="fas fa-coffee"></i> Makanan & Minuman
+                    </button>
+                </div>
+
+                <div class="filter-section">
+                    <div class="filter-group">
+                        <label>Periode:</label>
+                        <select id="purchases-period-filter" onchange="updatePurchasesData()">
+                            <option value="today">Hari Ini</option>
+                            <option value="week">Minggu Ini</option>
+                            <option value="month" selected>Bulan Ini</option>
+                            <option value="custom">Kustom</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" id="purchases-custom-date-range" style="display: none;">
+                        <input type="date" id="purchases-date-from">
+                        <input type="date" id="purchases-date-to">
+                        <button onclick="updatePurchasesData()" class="btn-secondary">Terapkan</button>
+                    </div>
+                    <div class="filter-group">
+                        <input type="text" id="purchases-search" placeholder="Cari berdasarkan nama/kode/tanggal..." onkeyup="searchPurchases()">
+                    </div>
+                    <button onclick="exportPurchases()" class="btn-success">
+                        <i class="fas fa-file-excel"></i> Ekspor ke Excel
+                    </button>
+                </div>
+
+                <!-- Ringkas: hanya total belanja (modal) -->
+                <div class="summary-cards" id="purchases-summary-cards">
+                    <div class="summary-card">
+                        <h4>Total Belanja (Modal)</h4>
+                        <div class="amount">Rp 0</div>
+                    </div>
+                </div>
+
+                <div class="history-table-container">
+                    <table id="purchases-table" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Tanggal & Jam</th>
+                                <th>Kode</th>
+                                <th>Nama Barang</th>
+                                <th>Harga Beli</th>
+                                <th>Qty Masuk</th>
+                                <th>Total Modal</th>
+                                <th>Harga Jual</th>
+                                <th>Laba per Item</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                    <!-- ✅ Pagination footer untuk Purchases -->
+                    <div class="table-footer">
+                        <div class="table-info" id="purchases-table-info"></div>
+                        <div class="pagination-controls" id="purchases-pagination"></div>
+                    </div>
                 </div>
             </div>
 
@@ -339,6 +424,11 @@
                         </thead>
                         <tbody></tbody>
                     </table>
+                    <!-- ✅ Pagination footer untuk Expenses -->
+                    <div class="table-footer">
+                        <div class="table-info" id="expenses-table-info"></div>
+                        <div class="pagination-controls" id="expenses-pagination"></div>
+                    </div>
                 </div>
             </div>
         </main>

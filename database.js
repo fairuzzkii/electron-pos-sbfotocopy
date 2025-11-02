@@ -23,6 +23,7 @@ class Database {
 
     init() {
         this.db.serialize(() => {
+            // Produk
             this.db.run(`
                 CREATE TABLE IF NOT EXISTS products (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,6 +36,7 @@ class Database {
                 )
             `);
 
+            // Penjualan
             this.db.run(`
                 CREATE TABLE IF NOT EXISTS sales (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,6 +48,7 @@ class Database {
                 )
             `);
 
+            // Pengeluaran untuk fotocopy/print
             this.db.run(`
                 CREATE TABLE IF NOT EXISTS fotocopy_expenses (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,9 +57,26 @@ class Database {
                     created_at TEXT
                 )
             `);
+
+            // ✅ Riwayat Pembelian (barang masuk)
+            // Disimpan minimal: product_id & qty & waktu.
+            // Kolom harga/nama TIDAK disalin agar tampilan selalu mengikuti data produk terkini.
+            this.db.run(`
+                CREATE TABLE IF NOT EXISTS purchases (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    product_id INTEGER NOT NULL,
+                    quantity INTEGER NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now', 'localtime')),
+                    FOREIGN KEY(product_id) REFERENCES products(id)
+                )
+            `);
+
+            this.db.run(`CREATE INDEX IF NOT EXISTS idx_purchases_created_at ON purchases(created_at)`);
+            this.db.run(`CREATE INDEX IF NOT EXISTS idx_purchases_product_id ON purchases(product_id)`);
         });
     }
 
+    // --------- Utilities ----------
     generateProductCode(type) {
         return new Promise((resolve, reject) => {
             const prefix = type === 'atk' ? 'ATK' : 'MM';
@@ -82,6 +102,7 @@ class Database {
         });
     }
 
+    // --------- Products ----------
     getProducts(type = null, searchQuery = '') {
         return new Promise((resolve, reject) => {
             let query = 'SELECT * FROM products';
@@ -130,13 +151,30 @@ class Database {
                         console.error('Error adding product:', err);
                         reject(err);
                     } else {
-                        resolve({ id: this.lastID });
+                        const newId = this.lastID;
+                        // ✅ Catat ke riwayat pembelian jika ada stok awal
+                        if ((parseInt(stock) || 0) > 0) {
+                            // tidak menunggu; tapi tetap aman jika ingin diawait
+                            // demi konsistensi gunakan insert async
+                        }
+                        resolve({ id: newId });
                     }
                 });
             } catch (err) {
                 console.error('Error adding product:', err);
                 reject(err);
             }
+        }).then(async (res) => {
+            // Setelah insert sukses, insert purchases jika perlu
+            const { id } = res;
+            if (product && (parseInt(product.stock) || 0) > 0) {
+                try {
+                    await this.addPurchase(id, parseInt(product.stock) || 0);
+                } catch (e) {
+                    console.error('Warning: failed to log initial purchase:', e);
+                }
+            }
+            return res;
         });
     }
 
@@ -182,6 +220,7 @@ class Database {
         });
     }
 
+    // --------- Sales ----------
     addSale(sale) {
         return new Promise((resolve, reject) => {
             const { type, payment_method, total_amount, items } = sale;
@@ -293,16 +332,27 @@ class Database {
                 UPDATE products
                 SET stock = stock + ?
                 WHERE id = ?
-            `, [delta, productId], function(err) {
+            `, [delta, productId], async function(err) {
                 if (err) {
                     reject(err);
                 } else {
                     resolve({ changes: this.changes });
                 }
             });
+        }).then(async (res) => {
+            // ✅ Catat pembelian hanya ketika stok bertambah (barang masuk)
+            if (delta > 0) {
+                try {
+                    await this.addPurchase(productId, delta);
+                } catch (e) {
+                    console.error('Warning: failed to log stock-add purchase:', e);
+                }
+            }
+            return res;
         });
     }
 
+    // --------- Expenses (fotocopy/print) ----------
     getExpenses(filters = {}) {
         return new Promise((resolve, reject) => {
             let query = "SELECT * FROM fotocopy_expenses";
@@ -359,7 +409,7 @@ class Database {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(row);
+                    resolve(row || { total_amount: 0 });
                 }
             });
         });
@@ -369,9 +419,9 @@ class Database {
         return new Promise((resolve, reject) => {
             const { description, amount, created_at } = expense;
             const formattedDate = created_at ? `${created_at} 00:00:00` : new Date().toISOString();
-            
+
             console.log('Menyimpan ke database:', { description, amount, formattedDate });
-            
+
             this.db.run(`
                 INSERT INTO fotocopy_expenses (description, amount, created_at)
                 VALUES (?, ?, ?)
@@ -429,6 +479,124 @@ class Database {
         });
     }
 
+    // --------- Purchases (Barang Masuk) ----------
+    addPurchase(productId, quantity, created_at = null) {
+        return new Promise((resolve, reject) => {
+            const dt = created_at ? `${created_at} 00:00:00` : null;
+            const sql = dt
+                ? `INSERT INTO purchases (product_id, quantity, created_at) VALUES (?, ?, ?)`
+                : `INSERT INTO purchases (product_id, quantity, created_at) VALUES (?, ?, datetime('now', 'localtime'))`;
+            const params = dt ? [productId, quantity, dt] : [productId, quantity];
+            this.db.run(sql, params, function(err) {
+                if (err) {
+                    console.error('Error adding purchase:', err);
+                    reject(err);
+                } else {
+                    resolve({ id: this.lastID });
+                }
+            });
+        });
+    }
+
+    getPurchases(filters = {}) {
+        // Mengembalikan baris dengan kolom tampilan mengikuti data produk terkini (join dengan products)
+        return new Promise((resolve, reject) => {
+            let query = `
+                SELECT 
+                    pu.id,
+                    pu.product_id,
+                    pu.quantity,
+                    pu.created_at,
+                    pr.code,
+                    pr.name,
+                    pr.type,
+                    pr.purchase_price,
+                    pr.selling_price,
+                    (pr.purchase_price * pu.quantity) AS total_modal
+                FROM purchases pu
+                JOIN products pr ON pr.id = pu.product_id
+            `;
+            let params = [];
+            let conditions = [];
+
+            if (filters.date_from) {
+                conditions.push("date(pu.created_at) >= ?");
+                params.push(filters.date_from);
+            }
+
+            if (filters.date_to) {
+                conditions.push("date(pu.created_at) <= ?");
+                params.push(filters.date_to);
+            }
+
+            if (filters.type) {
+                conditions.push("pr.type = ?");
+                params.push(filters.type);
+            }
+
+            if (filters.search) {
+                conditions.push("(pr.name LIKE ? OR pr.code LIKE ?)");
+                params.push(`%${filters.search}%`, `%${filters.search}%`);
+            }
+
+            if (conditions.length > 0) {
+                query += " WHERE " + conditions.join(" AND ");
+            }
+
+            query += " ORDER BY pu.created_at DESC, pr.name ASC";
+
+            this.db.all(query, params, (err, rows) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(rows);
+                }
+            });
+        });
+    }
+
+    getPurchasesSummary(filters = {}) {
+        // Total belanja (total modal) pada periode & type tertentu
+        return new Promise((resolve, reject) => {
+            let query = `
+                SELECT 
+                    SUM(pr.purchase_price * pu.quantity) AS total_amount
+                FROM purchases pu
+                JOIN products pr ON pr.id = pu.product_id
+            `;
+            let params = [];
+            let conditions = [];
+
+            if (filters.date_from) {
+                conditions.push("date(pu.created_at) >= ?");
+                params.push(filters.date_from);
+            }
+
+            if (filters.date_to) {
+                conditions.push("date(pu.created_at) <= ?");
+                params.push(filters.date_to);
+            }
+
+            if (filters.type) {
+                conditions.push("pr.type = ?");
+                params.push(filters.type);
+            }
+
+            if (conditions.length > 0) {
+                query += " WHERE " + conditions.join(" AND ");
+            }
+
+            this.db.get(query, params, (err, row) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(row || { total_amount: 0 });
+                }
+            });
+        });
+    }
+
+    // --------- Close ----------
     close() {
         this.db.close((err) => {
             if (err) {

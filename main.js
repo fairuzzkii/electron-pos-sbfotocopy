@@ -62,7 +62,7 @@ app.on('window-all-closed', () => {
     }
 });
 
-// ✅ IPC Handlers Database
+// ✅ IPC Handlers Database (existing)
 ipcMain.handle('db-get-products', (event, type, searchQuery = '') => db.getProducts(type, searchQuery));
 ipcMain.handle('db-add-product', (event, product) => db.addProduct(product));
 ipcMain.handle('db-update-product', (event, id, product) => db.updateProduct(id, product));
@@ -79,7 +79,13 @@ ipcMain.handle('db-delete-expense', (event, id) => db.deleteExpense(id));
 ipcMain.handle('db-delete-sale', (event, id) => db.deleteSale(id));
 ipcMain.handle('force-refresh-ui', () => mainWindow.webContents.reloadIgnoringCache());
 
-// ✅ IPC Export to Excel
+// ✅ IPC Handlers — Riwayat Pembelian (BARU)
+ipcMain.handle('db-get-purchases', (event, filters) => db.getPurchases(filters));
+ipcMain.handle('db-get-purchases-summary', (event, filters) => db.getPurchasesSummary(filters));
+// (Opsional jika perlu insert manual pembelian di masa depan)
+// ipcMain.handle('db-add-purchase', (event, productId, qty, created_at) => db.addPurchase(productId, qty, created_at));
+
+// ✅ IPC Export to Excel (Penjualan - existing)
 ipcMain.handle('export-sales-to-excel', async (event, salesData) => {
     try {
         const workbook = new ExcelJS.Workbook();
@@ -120,6 +126,56 @@ ipcMain.handle('export-sales-to-excel', async (event, salesData) => {
         return { success: true, path: filePath };
     } catch (error) {
         console.error('❌ Gagal ekspor Excel:', error);
+        return { success: false, message: error.message };
+    }
+});
+
+// ✅ IPC Export to Excel (Pembelian - BARU)
+ipcMain.handle('export-purchases-to-excel', async (event, purchasesRows) => {
+    try {
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('Riwayat Pembelian');
+
+        // Kolom menyesuaikan kebutuhan UI Riwayat Pembelian
+        sheet.columns = [
+            { header: 'Tanggal & Jam', key: 'created_at', width: 22 },
+            { header: 'Kode', key: 'code', width: 12 },
+            { header: 'Nama Barang', key: 'name', width: 28 },
+            { header: 'Jenis', key: 'type', width: 16 },
+            { header: 'Harga Beli', key: 'purchase_price', width: 14 },
+            { header: 'Qty (Stok Masuk)', key: 'quantity', width: 16 },
+            { header: 'Total Modal', key: 'total_modal', width: 16 },
+            { header: 'Harga Jual', key: 'selling_price', width: 14 },
+            { header: 'Laba per Item', key: 'profit_per_item', width: 16 },
+        ];
+
+        purchasesRows.forEach(row => {
+            const profitPerItem = (parseFloat(row.selling_price) || 0) - (parseFloat(row.purchase_price) || 0);
+            sheet.addRow({
+                created_at: row.created_at,
+                code: row.code,
+                name: row.name,
+                type: row.type === 'atk' ? 'ATK' : 'Makanan & Minuman',
+                purchase_price: row.purchase_price,
+                quantity: row.quantity,
+                total_modal: (parseFloat(row.purchase_price) || 0) * (parseInt(row.quantity) || 0),
+                selling_price: row.selling_price,
+                profit_per_item: profitPerItem
+            });
+        });
+
+        // Bold header
+        sheet.getRow(1).font = { bold: true };
+        sheet.getRow(1).alignment = { horizontal: 'center' };
+
+        const downloadsPath = path.join(os.homedir(), 'Downloads');
+        const filePath = path.join(downloadsPath, `Riwayat_Pembelian_${Date.now()}.xlsx`);
+        await workbook.xlsx.writeFile(filePath);
+        console.log('✅ Riwayat Pembelian diekspor ke:', filePath);
+
+        return { success: true, path: filePath };
+    } catch (error) {
+        console.error('❌ Gagal ekspor Pembelian:', error);
         return { success: false, message: error.message };
     }
 });
