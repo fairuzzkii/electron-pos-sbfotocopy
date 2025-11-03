@@ -930,34 +930,45 @@ function searchHistory() {
 }
 
 function getHistoryFilters() {
-    const period = document.getElementById('period-filter').value;
-    const today = new Date();
-    let dateFrom, dateTo;
+  const period = document.getElementById('period-filter').value;
+  const today = new Date();
+  let dateFrom, dateTo;
 
-    switch (period) {
-        case 'today':
-            dateFrom = dateTo = today.toISOString().split('T')[0];
-            break;
-        case 'week':
-            const weekStart = new Date(today);
-            weekStart.setDate(today.getDate() - today.getDay());
-            dateFrom = weekStart.toISOString().split('T')[0];
-            dateTo = today.toISOString().split('T')[0];
-            break;
-        case 'month':
-            dateFrom = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-            dateTo = today.toISOString().split('T')[0];
-            break;
-        case 'custom':
-            dateFrom = document.getElementById('date-from').value;
-            dateTo = document.getElementById('date-to').value;
-            break;
-        default:
-            dateFrom = dateTo = today.toISOString().split('T')[0];
+  switch (period) {
+    case 'today': {
+      const s = formatDateLocal(today);
+      dateFrom = s;
+      dateTo = s;
+      break;
     }
+    case 'week': {
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - today.getDay());
+      dateFrom = formatDateLocal(weekStart);
+      dateTo   = formatDateLocal(today);
+      break;
+    }
+    case 'month': {
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      dateFrom = formatDateLocal(firstDay);
+      dateTo   = formatDateLocal(today);
+      break;
+    }
+    case 'custom': {
+      dateFrom = document.getElementById('date-from').value || '';
+      dateTo   = document.getElementById('date-to').value || '';
+      break;
+    }
+    default: {
+      const s = formatDateLocal(today);
+      dateFrom = s;
+      dateTo   = s;
+    }
+  }
 
-    return { date_from: dateFrom, date_to: dateTo };
+  return { date_from: dateFrom, date_to: dateTo };
 }
+
 
 async function loadSummaryData(filters, allSales) {
     try {
@@ -1274,34 +1285,43 @@ function renderExpensesRows(rows) {
 }
 
 function getExpensesFilters() {
-    const period = document.getElementById('expenses-period-filter').value;
-    const today = new Date();
-    let dateFrom, dateTo;
+  const period = document.getElementById('expenses-period-filter').value;
+  const today = new Date();
+  let dateFrom, dateTo;
 
-    switch (period) {
-        case 'today':
-            dateFrom = dateTo = today.toISOString().split('T')[0];
-            break;
-        case 'week':
-            const weekStart = new Date(today);
-            weekStart.setDate(today.getDate() - today.getDay());
-            dateFrom = weekStart.toISOString().split('T')[0];
-            dateTo = today.toISOString().split('T')[0];
-            break;
-        case 'month':
-            dateFrom = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-            dateTo = today.toISOString().split('T')[0];
-            break;
-        case 'custom':
-            dateFrom = document.getElementById('expenses-date-from').value;
-            dateTo = document.getElementById('expenses-date-to').value;
-            break;
-        default:
-            dateFrom = dateTo = today.toISOString().split('T')[0];
+  switch (period) {
+    case 'today': {
+      const s = formatDateLocal(today);
+      dateFrom = s; dateTo = s;
+      break;
     }
+    case 'week': {
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - today.getDay());
+      dateFrom = formatDateLocal(weekStart);
+      dateTo   = formatDateLocal(today);
+      break;
+    }
+    case 'month': {
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      dateFrom = formatDateLocal(firstDay);
+      dateTo   = formatDateLocal(today);
+      break;
+    }
+    case 'custom': {
+      dateFrom = document.getElementById('expenses-date-from').value || '';
+      dateTo   = document.getElementById('expenses-date-to').value || '';
+      break;
+    }
+    default: {
+      const s = formatDateLocal(today);
+      dateFrom = s; dateTo = s;
+    }
+  }
 
-    return { date_from: dateFrom, date_to: dateTo };
+  return { date_from: dateFrom, date_to: dateTo };
 }
+
 
 function showAddExpenseModal() {
     document.getElementById('expense-date').valueAsDate = new Date();
