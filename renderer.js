@@ -1478,6 +1478,13 @@ function formatNumber(num) {
     return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
+function formatDateLocal(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 /* ------------------------ Export Penjualan ke Excel ----------------------- */
 async function exportSales() {
     try {
@@ -1514,34 +1521,44 @@ async function exportSales() {
 /* ======================= FITUR BARU: RIWAYAT PEMBELIAN ==================== */
 // Filters
 function getPurchasesFilters() {
-    const period = document.getElementById('purchases-period-filter').value;
-    const today = new Date();
-    let dateFrom, dateTo;
+  const period = document.getElementById('purchases-period-filter').value;
+  const today = new Date();
+  let dateFrom, dateTo;
 
-    switch (period) {
-        case 'today':
-            dateFrom = dateTo = today.toISOString().split('T')[0];
-            break;
-        case 'week':
-            const weekStart = new Date(today);
-            weekStart.setDate(today.getDate() - today.getDay());
-            dateFrom = weekStart.toISOString().split('T')[0];
-            dateTo = today.toISOString().split('T')[0];
-            break;
-        case 'month':
-            dateFrom = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-            dateTo = today.toISOString().split('T')[0];
-            break;
-        case 'custom':
-            dateFrom = document.getElementById('purchases-date-from').value;
-            dateTo = document.getElementById('purchases-date-to').value;
-            break;
-        default:
-            dateFrom = dateTo = today.toISOString().split('T')[0];
+  switch (period) {
+    case 'today': {
+      const s = formatDateLocal(today);
+      dateFrom = s; dateTo = s;
+      break;
     }
+    case 'week': {
+      const weekStart = new Date(today);
+      // Awal minggu (Minggu) seperti di Penjualan
+      weekStart.setDate(today.getDate() - today.getDay());
+      dateFrom = formatDateLocal(weekStart);
+      dateTo   = formatDateLocal(today);
+      break;
+    }
+    case 'month': {
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      dateFrom = formatDateLocal(firstDay);
+      dateTo   = formatDateLocal(today);
+      break;
+    }
+    case 'custom': {
+      dateFrom = document.getElementById('purchases-date-from').value || '';
+      dateTo   = document.getElementById('purchases-date-to').value || '';
+      break;
+    }
+    default: {
+      const s = formatDateLocal(today);
+      dateFrom = s; dateTo = s;
+    }
+  }
 
-    return { date_from: dateFrom, date_to: dateTo };
+  return { date_from: dateFrom, date_to: dateTo };
 }
+
 
 function updatePurchasesData() {
     const period = document.getElementById('purchases-period-filter').value;
